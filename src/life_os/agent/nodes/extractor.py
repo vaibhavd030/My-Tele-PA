@@ -89,7 +89,13 @@ async def run(state: AgentState) -> AgentState:
         text=state["raw_input"], today=date.today(), chat_history=history_str
     )
 
-    existing = state.get("entities", {})
+    # If we are currently clarifying, merge with existing state. 
+    # If the missing_fields list is empty, this is a fresh conversational turn; do NOT merge.
+    if state.get("missing_fields"):
+        existing = state.get("entities", {})
+    else:
+        existing = {}
+
     new_data = {}
     for k in type(extracted).model_fields:
         val = getattr(extracted, k)
