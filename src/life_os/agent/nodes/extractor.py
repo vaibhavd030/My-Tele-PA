@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import instructor
 import structlog
@@ -95,54 +96,86 @@ async def run(state: AgentState) -> AgentState:
         if val is not None and val != []:
             new_data[k] = val
 
-    merged = {}
+    # ── Merge new data with existing entities ─────────────────────────────
+    merged: dict[str, Any] = {}
     for k in type(extracted).model_fields:
         ex_val = existing.get(k)
         new_val = new_data.get(k)
 
         if ex_val and new_val:
             if isinstance(ex_val, list) and isinstance(new_val, list):
-                # If clarifying a single item in a list (like 1 exercise), merge them
-                if len(ex_val) == 1 and len(new_val) == 1 and hasattr(ex_val[0], "model_dump"):
-                    old_dict = ex_val[0].model_dump(exclude_unset=True, exclude_none=True)
+                # Merge single-item lists (e.g. clarifying one exercise session)
+                if len(ex_val) == 1 and len(new_val) == 1 and hasattr(new_val[0], "model_dump"):
+                    old_dict = (
+                        ex_val[0]
+                        if isinstance(ex_val[0], dict)
+                        else ex_val[0].model_dump(exclude_unset=True, exclude_none=True)
+                    )
                     new_dict = new_val[0].model_dump(exclude_unset=True, exclude_none=True)
-                    merged[k] = [type(ex_val[0])(**{**old_dict, **new_dict})]
+                    merged[k] = [{**old_dict, **new_dict}]
                 else:
-                    merged[k] = ex_val + new_val
-            elif hasattr(ex_val, "model_dump") and hasattr(new_val, "model_dump"):
+                    # Combine both lists; serialize new items to dicts
+                    serialized_new = [
+                        (
+                            v.model_dump(exclude_unset=True, exclude_none=True)
+                            if hasattr(v, "model_dump")
+                            else v
+                        )
+                        for v in new_val
+                    ]
+                    existing_list = ex_val if isinstance(ex_val, list) else [ex_val]
+                    merged[k] = existing_list + serialized_new
+            elif hasattr(new_val, "model_dump") and isinstance(ex_val, dict):
+                merged[k] = {**ex_val, **new_val.model_dump(exclude_unset=True, exclude_none=True)}
+            elif hasattr(new_val, "model_dump") and hasattr(ex_val, "model_dump"):
                 old_dict = ex_val.model_dump(exclude_unset=True, exclude_none=True)
                 new_dict = new_val.model_dump(exclude_unset=True, exclude_none=True)
-                merged[k] = type(ex_val)(**{**old_dict, **new_dict})
+                merged[k] = {**old_dict, **new_dict}
             else:
                 merged[k] = new_val
-        elif new_val:
+        elif new_val is not None:
             merged[k] = new_val
-        elif ex_val:
+        elif ex_val is not None:
             merged[k] = ex_val
 
-    # Simple required-field check
-    missing = []
+    # ── Serialize ALL Pydantic objects → plain dicts for msgpack ──────────
+    # LangGraph's MemorySaver uses msgpack which cannot handle Pydantic models.
+    serialized: dict[str, Any] = {}
+    for k, v in merged.items():
+        if hasattr(v, "model_dump"):
+            serialized[k] = v.model_dump(exclude_none=True)
+        elif isinstance(v, list):
+            serialized[k] = [
+                item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item
+                for item in v
+            ]
+        else:
+            serialized[k] = v
 
-    if "exercise" in merged and merged["exercise"]:
-        for ex in merged["exercise"]:
-            if getattr(ex, "exercise_type", None) is None and "exercise type" not in missing:
+    # ── Missing-field checks (work on serialized plain dicts) ─────────────
+    missing: list[str] = []
+
+    exercise_list = serialized.get("exercise", [])
+    for ex in exercise_list if isinstance(exercise_list, list) else [exercise_list]:
+        if isinstance(ex, dict):
+            if not ex.get("exercise_type") and "exercise type" not in missing:
                 missing.append("exercise type")
-            if getattr(ex, "duration_minutes", None) is None and "exercise duration" not in missing:
+            if not ex.get("duration_minutes") and "exercise duration" not in missing:
                 missing.append("exercise duration")
 
-    if "sleep" in merged and merged["sleep"]:
-        slp = merged["sleep"]
-        if getattr(slp, "bedtime_hour", None) is None and "bedtime" not in missing:
+    slp = serialized.get("sleep")
+    if slp and isinstance(slp, dict):
+        if slp.get("bedtime_hour") is None and "bedtime" not in missing:
             missing.append("bedtime")
-        if getattr(slp, "wake_hour", None) is None and "wake up time" not in missing:
+        if slp.get("wake_hour") is None and "wake up time" not in missing:
             missing.append("wake up time")
-        if getattr(slp, "quality", None) is None and "sleep quality" not in missing:
+        if not slp.get("quality") and "sleep quality" not in missing:
             missing.append("sleep quality")
 
     log.info("extraction_complete", fields_found=list(new_data.keys()), missing=missing)
 
-    state_updates = {
-        "entities": merged,
+    state_updates: dict[str, Any] = {
+        "entities": serialized,
         "chat_history": [("user", state["raw_input"])],
         "missing_fields": missing,
         "clarification_count": state.get("clarification_count", 0) + 1,

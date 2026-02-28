@@ -101,43 +101,38 @@ async def run(state: AgentState) -> dict[str, Any]:
     notion_tasks = entities.get("tasks") or []
     notion_links = entities.get("reading_links") or []
 
-    if sleep:
-        records_to_save.append({**sleep.model_dump(exclude_none=True), "type": "sleep"})
+    if sleep and isinstance(sleep, dict):
+        records_to_save.append({**sleep, "type": "sleep"})
         logged_sections.append(f"{_ICONS['sleep']}: {_summarise_sleep(sleep)}")
 
     if exercise:
         for ex in exercise:
-            records_to_save.append({**ex.model_dump(exclude_none=True), "type": "exercise"})
+            if isinstance(ex, dict):
+                records_to_save.append({**ex, "type": "exercise"})
         logged_sections.append(f"{_ICONS['exercise']}: {_summarise_exercise(exercise)}")
 
-    if wellness:
-        records_to_save.append({**wellness.model_dump(exclude_none=True), "type": "wellness"})
+    if wellness and isinstance(wellness, dict):
+        records_to_save.append({**wellness, "type": "wellness"})
         summary = _summarise_wellness(wellness)
         section = f"{_ICONS['wellness']}: {summary}" if summary else _ICONS["wellness"]
         logged_sections.append(section)
 
     if journal_note:
         records_to_save.append({"type": "journal_note", "note": journal_note})
-        # Truncate for the confirmation message
         preview = journal_note if len(journal_note) <= 80 else journal_note[:77] + "..."
         logged_sections.append(f"{_ICONS['journal_note']}: {preview}")
 
     if notion_tasks:
         for task in notion_tasks:
-            records_to_save.append({**task.model_dump(exclude_none=True), "type": "tasks"})
-        task_names = ", ".join(t.task for t in notion_tasks)
+            if isinstance(task, dict):
+                records_to_save.append({**task, "type": "tasks"})
+        task_names = ", ".join(t.get("task", "") for t in notion_tasks if isinstance(t, dict))
         logged_sections.append(f"{_ICONS['tasks']}: {task_names}")
 
     if notion_links:
         for link in notion_links:
-            # Explicitly convert url to str to avoid Pydantic v2 AnyUrl JSON issues
-            records_to_save.append(
-                {
-                    "url": link.url_str(),
-                    "context": link.context,
-                    "type": "reading_links",
-                }
-            )
+            if isinstance(link, dict):
+                records_to_save.append({**link, "type": "reading_links"})
         logged_sections.append(f"{_ICONS['reading_links']}: {len(notion_links)} link(s) saved")
 
     # ── Build the response ────────────────────────────────────────────────
@@ -146,14 +141,33 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     response_parts = ["I have logged the following:\n" + "\n".join(logged_sections)]
 
-    # ── Notion sync ───────────────────────────────────────────────────────
+    # ── Notion sync — reconstruct Pydantic models from plain dicts ────────
     if sleep or exercise or wellness or journal_note or notion_tasks or notion_links:
+        from life_os.models.tasks import ReadingLink, TaskItem
+        from life_os.models.wellness import ExerciseEntry, SleepEntry, WellnessEntry
+
+        notion_sleep = SleepEntry(**sleep) if sleep and isinstance(sleep, dict) else None
+        notion_exercise = (
+            [ExerciseEntry(**ex) for ex in exercise if isinstance(ex, dict)] if exercise else None
+        )
+        notion_wellness = (
+            WellnessEntry(**wellness) if wellness and isinstance(wellness, dict) else None
+        )
+        notion_task_models = (
+            [TaskItem(**t) for t in notion_tasks if isinstance(t, dict)] if notion_tasks else None
+        )
+        notion_link_models = (
+            [ReadingLink(**lnk) for lnk in notion_links if isinstance(lnk, dict)]
+            if notion_links
+            else None
+        )
+
         failed_syncs = await append_notion_blocks(
-            tasks=notion_tasks or None,
-            links=notion_links or None,
-            sleep=sleep,
-            exercise=exercise or None,
-            wellness=wellness,
+            tasks=notion_task_models,
+            links=notion_link_models,
+            sleep=notion_sleep,
+            exercise=notion_exercise,
+            wellness=notion_wellness,
             journal_note=journal_note,
         )
         if not failed_syncs:
