@@ -57,6 +57,7 @@ async def test_merges_with_existing_entities(base_state: dict) -> None:
         "duration_hours": 9.0,
     }
     base_state["entities"] = {"sleep": confirmed_sleep}
+    base_state["missing_fields"] = ["meditation_minutes"]
     base_state["raw_input"] = "I also meditated for 20 minutes"
 
     mock_result = ExtractedData()  # No sleep in new message
