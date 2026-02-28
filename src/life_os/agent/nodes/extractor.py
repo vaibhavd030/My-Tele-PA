@@ -143,10 +143,14 @@ async def run(state: AgentState) -> AgentState:
     serialized: dict[str, Any] = {}
     for k, v in merged.items():
         if hasattr(v, "model_dump"):
-            serialized[k] = v.model_dump(exclude_none=True)
+            serialized[k] = v.model_dump(mode="json", exclude_none=True)
         elif isinstance(v, list):
             serialized[k] = [
-                item.model_dump(exclude_none=True) if hasattr(item, "model_dump") else item
+                (
+                    item.model_dump(mode="json", exclude_none=True)
+                    if hasattr(item, "model_dump")
+                    else item
+                )
                 for item in v
             ]
         else:
