@@ -1,5 +1,9 @@
 """Notion API integration for appending tasks and reading links."""
 
+import asyncio
+import re
+import ssl
+import urllib.request
 from datetime import date
 from typing import Any
 
@@ -23,6 +27,30 @@ def _get_notion() -> AsyncClient:
             raise RuntimeError("NOTION_API_KEY not set")
         _notion_client = AsyncClient(auth=settings.notion_api_key.get_secret_value())
     return _notion_client
+
+
+def _fetch_title(url: str) -> str:
+    """Synchronously fetch the HTML title of a given URL."""
+    try:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, context=ctx, timeout=3) as response:
+            html = response.read().decode("utf-8", errors="ignore")
+            match = re.search(r"<title>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
+            if match:
+                return match.group(1).strip()
+    except Exception as e:
+        log.debug("fetch_title_failed", url=url, error=str(e))
+    return ""
+
+
+async def fetch_title(url: str) -> str:
+    """Asynchronously fetch the title of a web page."""
+    return await asyncio.to_thread(_fetch_title, url)
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8), reraise=True)
@@ -84,11 +112,14 @@ async def append_notion_blocks(
     if links and settings.notion_to_read_page_id:
         link_blocks = []
         for link in links:
-            content = "🔖 "
-            if link.context:
-                content += f"{link.context} - "
             url = link.url_str()
-            content += url
+            title = await fetch_title(url)
+
+            prefix_content = f"🔖 {date.today().isoformat()}: "
+            if link.context:
+                prefix_content += f"{link.context} - "
+
+            link_text = title if title else url
 
             link_blocks.append(
                 {
@@ -96,10 +127,8 @@ async def append_notion_blocks(
                     "type": "paragraph",
                     "paragraph": {
                         "rich_text": [
-                            {
-                                "type": "text",
-                                "text": {"content": content, "link": {"url": url}},
-                            }
+                            {"type": "text", "text": {"content": prefix_content}},
+                            {"type": "text", "text": {"content": link_text, "link": {"url": url}}},
                         ]
                     },
                 }
