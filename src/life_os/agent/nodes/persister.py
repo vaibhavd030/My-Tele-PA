@@ -27,18 +27,18 @@ _ICONS: dict[str, str] = {
 
 def _summarise_sleep(obj: Any) -> str:
     parts = []
-    if getattr(obj, "date", None):
-        parts.append(f"Date: {obj.date}")
-    if getattr(obj, "duration_hours", None):
-        parts.append(f"{obj.duration_hours} hrs")
-    if getattr(obj, "bedtime_hour", None) is not None:
-        minute = getattr(obj, "bedtime_minute", 0) or 0
-        parts.append(f"Bed: {obj.bedtime_hour:02d}:{minute:02d}")
-    if getattr(obj, "wake_hour", None) is not None:
-        minute = getattr(obj, "wake_minute", 0) or 0
-        parts.append(f"Woke: {obj.wake_hour:02d}:{minute:02d}")
-    if getattr(obj, "quality", None):
-        parts.append(f"Quality: {obj.quality}")
+    if obj.get("date"):
+        parts.append(f"Date: {obj.get('date')}")
+    if obj.get("duration_hours"):
+        parts.append(f"{obj.get('duration_hours')} hrs")
+    if obj.get("bedtime_hour") is not None:
+        minute = obj.get("bedtime_minute") or 0
+        parts.append(f"Bed: {obj.get('bedtime_hour'):02d}:{minute:02d}")
+    if obj.get("wake_hour") is not None:
+        minute = obj.get("wake_minute") or 0
+        parts.append(f"Woke: {obj.get('wake_hour'):02d}:{minute:02d}")
+    if obj.get("quality"):
+        parts.append(f"Quality: {obj.get('quality')}")
     return ", ".join(parts)
 
 
@@ -46,31 +46,34 @@ def _summarise_exercise(items: list[Any]) -> str:
     summaries = []
     for ex in items:
         parts = []
-        if getattr(ex, "exercise_type", None):
-            parts.append(str(ex.exercise_type).title())
-        if getattr(ex, "duration_minutes", None):
-            parts.append(f"{ex.duration_minutes} mins")
-        if getattr(ex, "distance_km", None):
-            parts.append(f"{ex.distance_km} km")
-        if getattr(ex, "intensity", None):
-            parts.append(f"Intensity: {ex.intensity}/10")
+        if ex.get("exercise_type"):
+            parts.append(str(ex.get("exercise_type")).title())
+        if ex.get("duration_minutes"):
+            parts.append(f"{ex.get('duration_minutes')} mins")
+        if ex.get("distance_km"):
+            parts.append(f"{ex.get('distance_km')} km")
+        if ex.get("intensity"):
+            parts.append(f"Intensity: {ex.get('intensity')}/10")
+        if ex.get("body_parts"):
+            bparts = [str(bp).replace('_', ' ').title() for bp in ex.get("body_parts")]
+            parts.append(f"Body: {', '.join(bparts)}")
         summaries.append(", ".join(parts) if parts else "Session logged")
     return " | ".join(summaries)
 
 
 def _summarise_wellness(obj: Any) -> str:
     parts = []
-    if getattr(obj, "time_of_day", None):
-        parts.append(f"@ {obj.time_of_day}")
-    if getattr(obj, "meditation_minutes", None):
-        med_str = f"{obj.meditation_minutes} mins"
-        if getattr(obj, "meditation_type", None):
-            med_str += f" ({str(obj.meditation_type).replace('_', ' ').title()})"
+    if obj.get("time_of_day"):
+        parts.append(f"@ {obj.get('time_of_day')}")
+    if obj.get("meditation_minutes"):
+        med_str = f"{obj.get('meditation_minutes')} mins"
+        if obj.get("meditation_type"):
+            med_str += f" ({str(obj.get('meditation_type')).replace('_', ' ').title()})"
         parts.append(med_str)
-    if getattr(obj, "mood_score", None):
-        parts.append(f"Mood: {obj.mood_score}/10")
-    if getattr(obj, "energy_level", None):
-        parts.append(f"Energy: {obj.energy_level}/10")
+    if obj.get("mood_score"):
+        parts.append(f"Mood: {obj.get('mood_score')}/10")
+    if obj.get("energy_level"):
+        parts.append(f"Energy: {obj.get('energy_level')}/10")
     return ", ".join(parts)
 
 

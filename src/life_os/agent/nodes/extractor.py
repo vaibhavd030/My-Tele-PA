@@ -211,16 +211,17 @@ async def run(state: AgentState) -> AgentState:
 
     log.info("extraction_complete", fields_found=list(new_data.keys()), missing=missing)
 
+    messages = [("user", state["raw_input"])]
+
     state_updates: dict[str, Any] = {
         "entities": serialized,
-        "chat_history": [("user", state["raw_input"])],
         "missing_fields": missing,
         "clarification_count": state.get("clarification_count", 0) + 1,
     }
 
     if missing:
         if missing == ["body part"]:
-            state_updates["response_message"] = (
+            response_msg = (
                 "Which body part(s) did you train? "
                 "Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body"
             )
@@ -234,6 +235,10 @@ async def run(state: AgentState) -> AgentState:
                     "Which body part(s) did you train? "
                     "Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body"
                 )
-            state_updates["response_message"] = " ".join(parts)
+            response_msg = " ".join(parts)
+            
+        state_updates["response_message"] = response_msg
+        messages.append(("assistant", response_msg))
 
+    state_updates["chat_history"] = messages
     return state_updates

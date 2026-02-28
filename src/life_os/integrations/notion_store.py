@@ -148,6 +148,9 @@ async def append_notion_blocks(
             )
             if ex.distance_km:
                 text += f" | Distance: {ex.distance_km}km"
+            if getattr(ex, "body_parts", None):
+                bparts_str = [str(getattr(bp, "value", bp)).replace('_', ' ').title() for bp in ex.body_parts]
+                text += f" | Body: {', '.join(bparts_str)}"
             if ex.notes:
                 text += f" | Notes: {ex.notes}"
 
