@@ -170,10 +170,12 @@ async def append_notion_blocks(
     # --- Append Wellness ---
     if wellness and settings.notion_wellness_page_id:
         text = f"🧘 Date: {wellness.date}"
+        if getattr(wellness, "time_of_day", None):
+            text += f" @ {wellness.time_of_day}"
         if wellness.meditation_minutes:
             text += f" | Meditation: {wellness.meditation_minutes} mins"
         if wellness.meditation_type:
-            text += f" ({wellness.meditation_type})"
+            text += f" ({wellness.meditation_type.replace('_', ' ').title()})"
         if wellness.mood_score:
             text += f" | Mood: {wellness.mood_score}/10"
         if wellness.energy_level:

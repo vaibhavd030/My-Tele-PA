@@ -106,8 +106,10 @@ class ExerciseEntry(BaseModel):
 
 
 class MeditationType(enum.StrEnum):
-    CLEANING = "cleaning"
-    SITTING = "sitting"
+    MEDITATION = "meditation"  # General / unspecified sitting meditation
+    CLEANING = "cleaning"  # Heartfulness cleaning practice
+    SITTING = "sitting"  # Heartfulness sitting / transmission practice
+    GROUP_MEDITATION = "group_meditation"  # Satsang / group sitting
     OTHER = "other"
 
 
@@ -115,9 +117,17 @@ class WellnessEntry(BaseModel):
     # Daily wellness log: meditation, mood, energy.
 
     date: dt_date
+    time_of_day: str | None = Field(
+        default=None,
+        description="Time of the session, e.g. '07:30' or '7am', if the user specifies it",
+    )
     meditation_minutes: Annotated[int, Field(ge=0)] | None = None
     meditation_type: MeditationType | None = Field(
-        default=None, description="Specific type of meditation (e.g., cleaning, sitting)"
+        default=None,
+        description=(
+            "Type of practice: 'meditation' (general), 'cleaning', 'sitting', "
+            "'group_meditation' (satsang/group sitting), or 'other'"
+        ),
     )
     mood_score: Annotated[int, Field(ge=1, le=10)] | None = None
     energy_level: Annotated[int, Field(ge=1, le=10)] | None = None
