@@ -7,6 +7,8 @@ In production (LOG_FORMAT=json): machine-parseable JSON for GCP Cloud Logging.
 from __future__ import annotations
 
 import logging
+import os
+from logging.handlers import RotatingFileHandler
 
 import structlog
 
@@ -43,5 +45,15 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    # Bridge stdlib logging (uvicorn, etc.) through structlog
-    logging.basicConfig(format="%(message)s", level=logging.INFO)
+    os.makedirs("logs", exist_ok=True)
+    file_handler = RotatingFileHandler("logs/app.log", maxBytes=5_000_000, backupCount=3)
+    file_handler.setLevel(logging.DEBUG)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    logging.basicConfig(
+        format="%(message)s",
+        level=logging.DEBUG,
+        handlers=[console_handler, file_handler],
+    )

@@ -13,3 +13,5 @@ config/token.json
 config/credentials.json
 *.egg-info/
 dist/
+
+logs/
