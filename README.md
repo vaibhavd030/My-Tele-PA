@@ -1,26 +1,29 @@
 # My Tele PA (Personal Life OS Agent v2.0)
 
-A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reminders, and journal entries using LangGraph, Instructor, and GPT-4o. Outputs are rigidly validated using Pydantic, stored locally in SQLite, and conditionally synced to Notion.
+A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reading links, and journal entries using LangGraph, Instructor, and GPT-4o. 
+
+The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using Pydantic, stores data locally in SQLite, and conditionally syncs all organized data straight to Notion databases.
 
 ## Features
 
 - **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities.
+- **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, Wellness, and Sleep straight to designated Notion databases seamlessly.
+- **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train? And duration?").
+- **Conversational Chitchat fallback**: If your message is just casual talk, a dedicated LLM node warmly acknowledges it and asks if you'd like to log anything.
 - **Query Mode**: Summarizes your historical SQLite records to answer contextual questions (e.g., "How was my sleep this week?").
-- **Interactive Clarification**: Pauses generation if missing critical variables (e.g., Bedtime) and prompts you to fill in the blanks.
-- **Notion Sync**: Pushes Reading Links, Tasks, Journal Entries, Exercise, and Sleep straight to designated Notion databases.
 - **Proactive Schedulers**: Automatically pings you at 8am daily for check-ins and Sunday at 7pm for a weekly digest.
 
 ---
 
 ## Architecture
 
-The underlying system runs as an asynchronous Telegram application paired with a robust Agentic Workflow:
-- **LangGraph**: Orchestrates the state machine between message classification, LLM entity extraction, missing field logic, and database persistence.
-- **Instructor**: Enforces deterministic JSON schemas directly from the OpenAI models.
-- **Pydantic**: Validates typing and value thresholds across all extracted payloads.
-- **SQLite**: Provides high-speed, localized, conversational memory and structured history storage.
+The system runs as an asynchronous Telegram polling application paired with a robust Agentic Workflow:
+- **LangGraph**: Orchestrates the state machine, routing between classification, entity extraction, missing-field logic loops, and database persistence.
+- **Instructor**: Enforces deterministic JSON schemas directly from the OpenAI `gpt-4o` models.
+- **Pydantic (v2)**: Validates typing and value thresholds across all extracted payloads.
+- **SQLite**: Provides high-speed, localized structured history and enables LangGraph's `MemorySaver` to checkpoint conversational state across dialog turns.
 
-### Agentic Graph Diagram
+### Agentic Graph Flow
 
 ```mermaid
 graph TD
@@ -30,74 +33,108 @@ graph TD
     subgraph Agent Workflow
         Graph --> GuardInput[Guard Input]
         GuardInput --> Classify[Classifier Node]
+        
         Classify -- "Intent: Log" --> Extract[Extractor Node]
         Classify -- "Intent: Query" --> Query[Query Node]
+        Classify -- "Intent: Other" --> Chitchat[Chitchat Node]
         
         Extract --> CheckMissing{Missing Fields?}
-        CheckMissing -- "Yes" --> AskUser[Prompt for clarification]
+        CheckMissing -- "Yes" --> GuardOutput
         CheckMissing -- "No" --> Persist[Persister Node]
         
         Persist --> Storage[(SQLite DB)]
         Persist -.-> Notion[Notion API]
+        
         Query --> Storage
+        Query --> GuardOutput
+        Chitchat --> GuardOutput
+        Persist --> GuardOutput
     end
     
-    AskUser --> Bot
-    Persist --> Bot
-    Query --> Bot
+    GuardOutput --> Bot
 ```
 
 ---
 
-## File Organization
+## Example Interactions
+
+### 1. Multi-Entity Logging 
+You can brain-dump multiple things at once. The extractor pulls them apart.
+
+**User:** 
+> "feeling good today, built a health journal app, had coffee, did 20 mins of sitting meditation at 7am, and need to call the dentist tomorrow"
+
+**Bot:**
+> I have logged the following:
+> 🧘 Wellness: @ 07:00, 20 mins (Sitting)
+> 📝 Journal: Feeling good today, built a health journal app, had coffee
+> ✅ Tasks: call the dentist tomorrow
+> 
+> ✨ Synced to Notion!
+
+### 2. The Clarification Loop
+If you provide partial data, the bot knows what schema fields are missing and asks.
+
+**User:** 
+> "Went to the gym and did weights training"
+
+**Bot:**
+> Which body part(s) did you train? Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body
+
+**User:** 
+> "chest and triceps, for 45 mins"
+
+**Bot:**
+> I have logged the following:
+> 🏃 Exercise: Weights, 45 mins | Body: Chest, Triceps
+> ✨ Synced to Notion!
+
+### 3. Reading List Auto-routing
+**User:** 
+> `https://medium.com/some-article-link`
+
+**Bot:**
+> I have logged the following:
+> 🔖 Reading: 1 link(s) saved
+> ✨ Synced to Notion!
+
+---
+
+## File Organization & Component Interaction
 
 The repository is modularly designed, separating the generic Agent pipeline from the Telegram Interface.
 
 ```text
 ├── Dockerfile                    # Containerization instructions
 ├── Makefile                      # Make commands for testing, evals, format
-├── cloudbuild.yaml               # CI/CD configuration
-├── data/                         # SQLite database storage directory
-├── fly.toml                      # Fly.io deployment configuration
-├── pyproject.toml                # Project metadata and dependencies (UV)
-├── simulation.py                 # End-to-end local simulation script (bypasses Telegram)
+├── simulation.py                 # CLI simulation script (bypasses Telegram for fast testing)
 ├── src/
 │   └── life_os/
 │       ├── agent/                # Core LangGraph agent definitions
 │       │   ├── graph.py          # State graph wiring and execution compilation
 │       │   ├── state.py          # Agent state typings
-│       │   ├── nodes/            # Graph nodes (classifier, extractor, guard, persister, query)
-│       │   └── prompts/          # System prompts for GPT-4o
-│       ├── config/               # Pydantic environmental settings and structlog config
-│       ├── evals/                # Evaluation datasets, metrics, and execution scripts
-│       ├── integrations/         # Code interacting with databases and APIs (SQLite, Notion)
-│       ├── models/               # Pydantic schemas validating inputs
-│       └── telegram/             # Telegram generic handlers, webhook, and schedulers
+│       │   ├── prompts/          # System prompts for GPT-4o extractions
+│       │   └── nodes/            # 
+│       │       ├── classifier.py # Routes to log, query, or chitchat
+│       │       ├── extractor.py  # Uses Instructor to pull Pydantic models from text; handles merge logic
+│       │       ├── persister.py  # Formats confirmation message & pushes to SQLite/Notion
+│       │       ├── query.py      # Pandas-based summarization of SQLite history
+│       │       └── guard.py      # Safety checks and state cleanups
+│       ├── config/               # Pydantic env settings and structlog config
+│       ├── evals/                # Custom evaluation datasets & F1 metric tracking
+│       ├── integrations/         # 
+│       │   ├── sqlite_store.py   # Async SQLite connection pool & queries
+│       │   └── notion_store.py   # Tenacity-retried API calls to Notion databases
+│       ├── models/               # 
+│       │   ├── wellness.py       # Sleep, Exercise, and Wellness schemas
+│       │   └── tasks.py          # Task and ReadingLink schemas
+│       └── telegram/             
+│           ├── bot.py            # python-telegram-bot handlers
+│           └── jobs.py           # APScheduler cron jobs (morning check-in, weekly digest)
 ├── tests/
-│   ├── e2e/                      # End-to-end tests
-│   ├── integration/              # Integration tests (verifies LangGraph node chaining)
-│   └── unit/                     # Unit tests (verifies LLM extractor accuracy)
+│   ├── integration/              # Tests LangGraph node chaining logic
+│   └── unit/                     # Unit tests for LLM extractor accuracy
 ```
-
----
-
-## Engineering Challenges & Solutions
-
-1. **Conversational Memory & State Pollution**
-   - *Challenge*: The LangGraph agent would remember past extractions and duplicate them across multi-turn conversations if the user was providing clarification.
-   - *Solution*: Implemented SQLite-based Checkpointing (`MemorySaver`) using dynamic `thread_id` configurations. We explicitly wipe `entities` and `missing_fields` from the `AgentState` after a successful persistence action to ensure a clean state while safely maintaining conversational history in the LLM context limits.
-
-2. **Partial Extractions & Strict Validation**
-   - *Challenge*: Relying heavily on strict Pydantic schemas meant the LLM would drop actions entirely if sub-parameters were missing (e.g. "I slept 8 hours" drops because there is no Exact Bedtime).
-   - *Solution*: Decoupled strict Pydantic parsing into granular `Optional` models. Designed a deep-merge strategy inside the `extractor.py` to aggregate partial payloads across dialog turns, conditionally routing inside the graph to an interactive user-clarification step until validation thresholds are met.
-
-3. **Database Concurrency Errors**
-   - *Challenge*: `aiosqlite` threw context execution errors when accessed asynchronously by the Telegram Webhook handler and background API Schedulers simultaneously.
-   - *Solution*: Bound strict Context Managers, initialized global database connector pools properly, and refactored integrations to cleanly accept and execute `cursor` transactions.
-
-4. **Regression Drop-offs during Refactoring**
-   - *Challenge*: Adjusting model typings heavily distorted the accuracy of the LLM mapping outputs.
-   - *Solution*: Built a customized `.jsonl` evaluation pipeline based on F1 Score tracking. Using exact precision tracking allowed instant identification of broken dictionary parsing during regression tests.
 
 ---
 
@@ -120,7 +157,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
    ```
 
 4. **Environment Setup**
-   Copy the `.env.example` file and populate your keys. At minimum, you need an OpenAI API Key and a Telegram Bot token (from BotFather).
+   Copy the `.env.example` file and populate your keys. At minimum, you need an OpenAI API Key and a Telegram Bot token (from BotFather). Enable Notion sync by setting `ENABLE_NOTION=true` and providing the relevant Page/Database IDs.
    ```bash
    cp .env.example .env
    ```
