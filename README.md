@@ -165,7 +165,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
 5. **Initialize Database**
    The SQLite database structure is automatically instantiated when you boot the bot for the first time. There is no need for manual migrations.
    ```bash
-   uv run python -m life_os.telegram.bot --mode polling
+   make dev
    ```
 
 ---
@@ -175,7 +175,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
 ### Local Execution (Polling Mode)
 Run the script to actively ping Telegram servers for incoming app messages.
 ```bash
-uv run python -m life_os.telegram.bot --mode polling
+make dev
 ```
 
 ### Local Simulation (Bypass Telegram)
