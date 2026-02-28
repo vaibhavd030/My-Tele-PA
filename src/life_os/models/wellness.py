@@ -121,7 +121,10 @@ class ExerciseEntry(BaseModel):
     )
     duration_minutes: Annotated[int, Field(gt=0, le=600)] | None = None
     distance_km: Annotated[float, Field(ge=0)] | None = None
-    intensity: Annotated[int, Field(ge=1, le=10)] | None = Field(default=None)
+    intensity: Annotated[int, Field(ge=1, le=10)] | None = Field(
+        default=None, 
+        description="Intensity score from 1-10. If the user uses words like 'intense', 'hard', 'tiring', infer a score of 8 or 9."
+    )
     notes: str | None = Field(default=None, max_length=500)
 
 

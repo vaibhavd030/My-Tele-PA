@@ -104,27 +104,41 @@ async def run(state: AgentState) -> AgentState:
 
         if ex_val and new_val:
             if isinstance(ex_val, list) and isinstance(new_val, list):
-                # Merge single-item lists (e.g. clarifying one exercise session)
-                if len(ex_val) == 1 and len(new_val) == 1 and hasattr(new_val[0], "model_dump"):
-                    old_dict = (
-                        ex_val[0]
-                        if isinstance(ex_val[0], dict)
-                        else ex_val[0].model_dump(exclude_unset=True, exclude_none=True)
-                    )
-                    new_dict = new_val[0].model_dump(exclude_unset=True, exclude_none=True)
-                    merged[k] = [{**old_dict, **new_dict}]
-                else:
-                    # Combine both lists; serialize new items to dicts
-                    serialized_new = [
-                        (
-                            v.model_dump(exclude_unset=True, exclude_none=True)
-                            if hasattr(v, "model_dump")
-                            else v
-                        )
-                        for v in new_val
-                    ]
-                    existing_list = ex_val if isinstance(ex_val, list) else [ex_val]
-                    merged[k] = existing_list + serialized_new
+                existing_list = [
+                    (v if isinstance(v, dict) else v.model_dump(exclude_unset=True, exclude_none=True))
+                    for v in ex_val
+                ]
+                new_list = [
+                    (v.model_dump(exclude_unset=True, exclude_none=True) if hasattr(v, "model_dump") else v)
+                    for v in new_val
+                ]
+
+                # Smart merge: try to update existing items rather than just concatenating
+                for new_item in new_list:
+                    match_idx = -1
+                    # Match by type if available
+                    if new_item.get("exercise_type"):
+                        for i, old_item in enumerate(existing_list):
+                            if old_item.get("exercise_type") == new_item["exercise_type"]:
+                                match_idx = i
+                                break
+                    # Or find an item missing a value that the new item provides
+                    if match_idx == -1:
+                        for key, val in new_item.items():
+                            if val is not None:
+                                for i, old_item in enumerate(existing_list):
+                                    if old_item.get(key) is None:
+                                        match_idx = i
+                                        break
+                            if match_idx != -1:
+                                break
+                    
+                    if match_idx != -1:
+                        existing_list[match_idx] = {**existing_list[match_idx], **new_item}
+                    else:
+                        existing_list.append(new_item)
+                
+                merged[k] = existing_list
             elif hasattr(new_val, "model_dump") and isinstance(ex_val, dict):
                 merged[k] = {**ex_val, **new_val.model_dump(exclude_unset=True, exclude_none=True)}
             elif hasattr(new_val, "model_dump") and hasattr(ex_val, "model_dump"):
