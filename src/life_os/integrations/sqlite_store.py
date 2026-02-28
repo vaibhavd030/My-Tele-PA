@@ -20,7 +20,7 @@ log = structlog.get_logger(__name__)
 
 
 async def init_db() -> None:
-    '''Initialize the SQLite database with required tables.'''
+    """Initialize the SQLite database with required tables."""
     os.makedirs(os.path.dirname(settings.db_path), exist_ok=True)
     db = await get_db()
     try:
@@ -37,7 +37,8 @@ async def init_db() -> None:
         await db.commit()
     finally:
         await db.close()
-    log.info('sqlite_db_initialized', path=settings.db_path)
+    log.info("sqlite_db_initialized", path=settings.db_path)
+
 
 async def get_db() -> aiosqlite.Connection:
     """Get an async connection to the SQLite database."""
@@ -48,7 +49,7 @@ async def get_db() -> aiosqlite.Connection:
 
 
 async def save_records(user_id: str, records: list[dict[str, Any]]) -> None:
-    '''Save structured records into SQLite.'''
+    """Save structured records into SQLite."""
     db = await get_db()
     try:
         for record in records:
@@ -59,13 +60,13 @@ async def save_records(user_id: str, records: list[dict[str, Any]]) -> None:
                 VALUES (?, ?, ?, ?)
                 """,
                 (
-                    user_id, 
-                    date.today().isoformat(), 
-                    record.get("type", "unknown"), 
-                    json.dumps(record, default=str)
-                )
+                    user_id,
+                    date.today().isoformat(),
+                    record.get("type", "unknown"),
+                    json.dumps(record, default=str),
+                ),
             )
         await db.commit()
     finally:
         await db.close()
-    log.info('saved_records_to_sqlite', count=len(records), user_id=user_id)
+    log.info("saved_records_to_sqlite", count=len(records), user_id=user_id)

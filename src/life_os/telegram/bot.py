@@ -31,11 +31,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Authorized user check
     if update.message.chat_id != settings.telegram_chat_id:
-        print(
-            f"\n\n🚨 UNAUTHORIZED CHAT DETECTED 🚨\nYOUR CHAT ID IS: "
-            f"{update.message.chat_id}\nUPDATE .env FILE WITH THIS ID!\n\n"
+        log.warning(
+            "unauthorized_access_attempt",
+            chat_id=update.message.chat_id,
+            user_id=user_id,
+            hint="Add this chat_id to TELEGRAM_CHAT_ID in .env",
         )
-        log.warning("unauthorized_access", user_id=user_id, chat_id=update.message.chat_id)
         await update.message.reply_text("Unauthorized access.")
         return
 
@@ -46,13 +47,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Invoke LangGraph app with thread configuration for memory checkpointer
     config = {"configurable": {"thread_id": user_id}}
-    
+
     state = await agent_app.ainvoke(
         {
             "user_id": user_id,
             "raw_input": text,
         },
-        config=config
+        config=config,
     )
 
     response = state.get("response_message")
@@ -70,43 +71,42 @@ def main() -> None:
     args = parser.parse_args()
 
     configure_logging()
-    
+
     # Initialize SQLite database
     import asyncio
+
     asyncio.run(init_db())
-    
+
     log.info("starting_bot", mode=args.mode)
 
     application = (
-        Application.builder()
-        .token(settings.telegram_bot_token.get_secret_value())
-        .build()
+        Application.builder().token(settings.telegram_bot_token.get_secret_value()).build()
     )
-    
+
     # ── JobQueue Schedulers ──
     from datetime import time
 
     from life_os.telegram.jobs import send_morning_checkin, send_weekly_digest
-    
+
     chat_id = settings.telegram_chat_id
     if chat_id:
-        from datetime import UTC
-        target_tz = UTC
-        
-        # 8 AM daily
-        t_morning = time(hour=settings.morning_checkin_hour, minute=0, tzinfo=target_tz)
-        application.job_queue.run_daily(
-            send_morning_checkin, time=t_morning, chat_id=chat_id
-        )
-        
-        # Sunday 7 PM weekly
-        # python-telegram-bot run_daily days parameter: integer tuple 
-        # (0-6, where 0=Monday, 6=Sunday)
-        t_weekly = time(hour=19, minute=0, tzinfo=target_tz)
-        application.job_queue.run_daily(
-            send_weekly_digest, time=t_weekly, days=(6,), chat_id=chat_id
-        )
-        
+        from zoneinfo import ZoneInfo
+
+        target_tz = ZoneInfo(settings.timezone)
+
+        if application.job_queue:
+            # 8 AM daily
+            t_morning = time(hour=settings.morning_checkin_hour, minute=0, tzinfo=target_tz)
+            application.job_queue.run_daily(send_morning_checkin, time=t_morning, chat_id=chat_id)
+
+            # Sunday 7 PM weekly
+            # python-telegram-bot run_daily days parameter: integer tuple
+            # (0-6, where 0=Monday, 6=Sunday)
+            t_weekly = time(hour=19, minute=0, tzinfo=target_tz)
+            application.job_queue.run_daily(
+                send_weekly_digest, time=t_weekly, days=(6,), chat_id=chat_id
+            )
+
     # ── Handlers ──
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -115,7 +115,7 @@ def main() -> None:
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     else:
         # Webhook setup logic goes here for cloudrun
-        application.run_webhook(...)
+        application.run_webhook(listen="0.0.0.0", port=8080, url_path="webhook")  # noqa: S104
 
 
 if __name__ == "__main__":

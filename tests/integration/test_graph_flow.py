@@ -18,7 +18,7 @@ async def test_input_guard_blocks_crisis():
             "response_message": None,
             "structured_records": [],
         },
-        config
+        config,
     )
 
     assert state["abort"] is True
@@ -40,7 +40,7 @@ async def test_input_guard_blocks_injection():
             "response_message": None,
             "structured_records": [],
         },
-        config
+        config,
     )
 
     assert state["abort"] is True

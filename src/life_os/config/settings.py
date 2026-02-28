@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     morning_checkin_hour: int = Field(default=8, ge=0, le=23)
     weekly_report_day: str = Field(default="sun")
     max_clarification_turns: int = Field(default=3)
+    timezone: str = Field(default="Europe/London")
 
     @field_validator("openai_model")
     @classmethod
@@ -72,4 +73,4 @@ class Settings(BaseSettings):
         return v
 
 
-settings = Settings()  # Module-level singleton
+settings = Settings()  # type: ignore

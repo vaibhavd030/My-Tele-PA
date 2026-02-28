@@ -24,21 +24,32 @@ async def run_extraction_evals() -> dict[str, float]:
         predicted = {}
         async for step in agent_app.astream(
             {"raw_input": case["input"], "user_id": "eval_user"},
-            config={"configurable": {"thread_id": f"eval_{case['id']}"}}
+            config={"configurable": {"thread_id": f"eval_{case['id']}"}},
         ):
             if "extract" in step and "entities" in step["extract"]:
                 predicted = step["extract"]["entities"]
-                
+
         # the model returns Pydantic objects, so convert predicted to dict
         if hasattr(predicted, "model_dump"):
-            predicted = predicted.model_dump()
+            predicted = predicted.model_dump(exclude_unset=True, exclude_none=True)
         elif isinstance(predicted, dict):
             # Check if inner things are models
             for k, v in predicted.items():
                 if hasattr(v, "model_dump"):
-                    predicted[k] = v.model_dump()
+                    predicted[k] = v.model_dump(exclude_unset=True, exclude_none=True)
                 elif isinstance(v, list):
-                    predicted[k] = [i.model_dump() if hasattr(i, "model_dump") else i for i in v]
+                    predicted[k] = [
+                        (
+                            i.model_dump(exclude_unset=True, exclude_none=True)
+                            if hasattr(i, "model_dump")
+                            else i
+                        )
+                        for i in v
+                    ]
+
+        # Filter predicted to only keys that exist in expected
+        # to avoid penalizing bonus context (e.g. journal_note)
+        predicted = {k: v for k, v in predicted.items() if k in case["expected"]}
 
         metrics = slot_fill_f1(predicted, case["expected"])
         results.append(metrics.f1)

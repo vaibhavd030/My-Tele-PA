@@ -1,2 +1,9 @@
 {"id": "sleep_001", "input": "slept at 11 woke up at 630 felt amazing", "expected": {"sleep": {"bedtime_hour": 23, "bedtime_minute": 0, "wake_hour": 6, "wake_minute": 30, "quality": "excellent"}}, "tags": ["sleep", "complete"]}
 {"id": "mixed_001", "input": "ran 5k this morning and meditated 15 mins, mood is a solid 8", "expected": {"exercise": [{"exercise_type": "run", "distance_km": 5.0}], "wellness": {"meditation_minutes": 15, "mood_score": 8}}, "tags": ["exercise", "wellness", "complete"]}
+{"id":"sleep_002","input":"woke up at 7 but cant remember when i slept", "expected":{"sleep":{"wake_hour":7,"wake_minute":0}}}
+{"id":"sleep_003","input":"slept badly, maybe 5 hours", "expected":{"sleep":{"duration_hours":5.0,"quality":"poor"}}}
+{"id":"exercise_001","input":"went for a walk this morning for 45 mins", "expected":{"exercise":[{"exercise_type":"walk","duration_minutes":45}]}}
+{"id":"exercise_002","input":"ran 10k in 55 minutes", "expected":{"exercise":[{"exercise_type":"run","duration_minutes":55,"distance_km":10.0}]}}
+{"id":"task_001","input":"remind me to call the dentist tomorrow", "expected":{"tasks":[{"task":"call the dentist"}]}}
+{"id":"wellness_001","input":"meditated 20 mins, feeling great today, energy 9", "expected":{"wellness":{"meditation_minutes":20,"energy_level":9}}}
+{"id":"multi_001","input":"8hrs sleep, ran 5k, meditated 10 mins", "expected":{"sleep":{"duration_hours":8.0},"exercise":[{"exercise_type":"run","distance_km":5.0}],"wellness":{"meditation_minutes":10}}}

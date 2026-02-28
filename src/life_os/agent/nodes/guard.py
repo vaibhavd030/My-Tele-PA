@@ -71,6 +71,10 @@ async def run_output_guard(state: AgentState) -> AgentState:
     Returns:
         State with validated records, or fallback journal entry.
     """
+    # Don't touch state during clarification loop
+    if state.get("missing_fields"):
+        return {}  # preserve extractor's response_message unchanged
+
     records = state.get("structured_records", [])
     if not records:
         log.warning("no_records_to_write", user_id=state["user_id"])

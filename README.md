@@ -56,8 +56,6 @@ The repository is modularly designed, separating the generic Agent pipeline from
 ```text
 ├── Dockerfile                    # Containerization instructions
 ├── Makefile                      # Make commands for testing, evals, format
-├── alembic.ini                   # Alembic configuration for DB migrations
-├── alembic/                      # Database migration scripts
 ├── cloudbuild.yaml               # CI/CD configuration
 ├── data/                         # SQLite database storage directory
 ├── fly.toml                      # Fly.io deployment configuration
@@ -128,9 +126,9 @@ The repository is modularly designed, separating the generic Agent pipeline from
    ```
 
 5. **Initialize Database**
-   Run the Alembic migrations to build the SQLite scaffolding in `./data/life_os.db`:
+   The SQLite database structure is automatically instantiated when you boot the bot for the first time. There is no need for manual migrations.
    ```bash
-   uv run alembic upgrade head
+   uv run python -m life_os.telegram.bot --mode polling
    ```
 
 ---

@@ -56,8 +56,8 @@ async def _call_llm(text: str, today: date, chat_history: str = "") -> Extracted
             {
                 "role": "system",
                 "content": (
-                    _SYSTEM_PROMPT.format(today=today.isoformat()) + 
-                    "\n\nRecent Chat History (Use this to avoid extracting duplicate information "
+                    _SYSTEM_PROMPT.format(today=today.isoformat())
+                    + "\n\nRecent Chat History (Use this to avoid extracting duplicate information "
                     "if the user is just repeating themselves):\n" + chat_history
                 ),
             },
@@ -85,9 +85,7 @@ async def run(state: AgentState) -> AgentState:
     history_str = "\n".join([f"{msg.type}: {msg.content}" for msg in history[-5:]])
 
     extracted = await _call_llm(
-        text=state["raw_input"],
-        today=date.today(),
-        chat_history=history_str
+        text=state["raw_input"], today=date.today(), chat_history=history_str
     )
 
     existing = state.get("entities", {})
@@ -101,7 +99,7 @@ async def run(state: AgentState) -> AgentState:
     for k in type(extracted).model_fields:
         ex_val = existing.get(k)
         new_val = new_data.get(k)
-        
+
         if ex_val and new_val:
             if isinstance(ex_val, list) and isinstance(new_val, list):
                 # If clarifying a single item in a list (like 1 exercise), merge them
@@ -121,10 +119,10 @@ async def run(state: AgentState) -> AgentState:
             merged[k] = new_val
         elif ex_val:
             merged[k] = ex_val
-    
+
     # Simple required-field check
     missing = []
-    
+
     if "exercise" in merged and merged["exercise"]:
         for ex in merged["exercise"]:
             if getattr(ex, "exercise_type", None) is None and "exercise type" not in missing:
@@ -142,15 +140,16 @@ async def run(state: AgentState) -> AgentState:
             missing.append("sleep quality")
 
     log.info("extraction_complete", fields_found=list(new_data.keys()), missing=missing)
-    
+
     state_updates = {
-        "entities": merged, 
+        "entities": merged,
         "chat_history": [("user", state["raw_input"])],
-        "missing_fields": missing
+        "missing_fields": missing,
+        "clarification_count": state.get("clarification_count", 0) + 1,
     }
-    
+
     if missing:
         missing_str = ", ".join(missing)
         state_updates["response_message"] = f"Got it! Could you also specify the {missing_str}?"
-        
+
     return state_updates

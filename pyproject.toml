@@ -9,7 +9,6 @@ dependencies = [
     "langgraph>=0.2.0",
     "langchain-openai>=0.2.0",
     "langchain-core>=0.3.0",
-    "langchain-mcp-adapters>=0.1.0",   # MCP bridge (optional feature)
     "openai>=1.40.0",
     "instructor>=1.4.0",               # Structured LLM outputs
     "pydantic>=2.8.0",                 # Data validation

@@ -2,3 +2,14 @@
 data/
 .venv/
 __pycache__
+.coverage
+.coverage.*
+htmlcov/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+config/token.json
+config/credentials.json
+*.egg-info/
+dist/

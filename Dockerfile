@@ -42,8 +42,4 @@ USER appuser
 ENV PORT=8080
 EXPOSE $PORT
 
-CMD uvicorn life_os.telegram.webhook:app \
-    --host 0.0.0.0 \
-    --port $PORT \
-    --workers 1 \
-    --log-level warning
+CMD python -m life_os.telegram.bot --mode polling

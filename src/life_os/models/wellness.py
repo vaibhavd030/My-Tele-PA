@@ -42,34 +42,34 @@ class SleepEntry(BaseModel):
 
     date: dt_date = Field(description="Calendar date of the sleep")
     bedtime_hour: Annotated[int, Field(ge=0, le=23)] | None = Field(
-        default=None, description='Hour went to sleep'
+        default=None, description="Hour went to sleep"
     )
     bedtime_minute: Annotated[int, Field(ge=0, le=59)] | None = Field(default=None)
     wake_hour: Annotated[int, Field(ge=0, le=23)] | None = Field(
-        default=None, description='Hour woke up'
+        default=None, description="Hour woke up"
     )
     wake_minute: Annotated[int, Field(ge=0, le=59)] | None = Field(default=None)
     duration_hours: float | None = Field(
-        default=None, description='Total sleep duration if specific times are not given'
+        default=None, description="Total sleep duration if specific times are not given"
     )
     quality: SleepQuality | None = None
     notes: str | None = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def compute_duration(self) -> SleepEntry:
         # Calculate duration if exact times are given
         if self.bedtime_hour is not None and self.wake_hour is not None:
             bed_m = self.bedtime_minute or 0
             wake_m = self.wake_minute or 0
-            
+
             bed_total_mins = self.bedtime_hour * 60 + bed_m
             wake_total_mins = self.wake_hour * 60 + wake_m
-            
+
             if wake_total_mins <= bed_total_mins:
                 wake_total_mins += 24 * 60
-                
+
             calculated_duration = (wake_total_mins - bed_total_mins) / 60.0
-            
+
             # Use calculated duration if none is explicitly provided, or override
             if self.duration_hours is None:
                 self.duration_hours = round(calculated_duration, 2)

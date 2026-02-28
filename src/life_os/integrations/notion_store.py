@@ -1,6 +1,11 @@
 """Notion API integration for appending tasks and reading links."""
+
+from datetime import date
+from typing import Any
+
 import structlog
 from notion_client import AsyncClient
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from life_os.config.settings import settings
 from life_os.models.tasks import ReadingLink, TaskItem
@@ -8,21 +13,41 @@ from life_os.models.wellness import ExerciseEntry, SleepEntry, WellnessEntry
 
 log = structlog.get_logger(__name__)
 
+_notion_client: AsyncClient | None = None
+
+
+def _get_notion() -> AsyncClient:
+    global _notion_client
+    if _notion_client is None:
+        if not settings.notion_api_key:
+            raise RuntimeError("NOTION_API_KEY not set")
+        _notion_client = AsyncClient(auth=settings.notion_api_key.get_secret_value())
+    return _notion_client
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8), reraise=True)
+async def _append_blocks(
+    notion: AsyncClient, block_id: str, children: list[dict[str, Any]]
+) -> None:
+    await notion.blocks.children.append(block_id=block_id, children=children)
+
 
 async def append_notion_blocks(
-    tasks: list[TaskItem] | None = None, 
+    tasks: list[TaskItem] | None = None,
     links: list[ReadingLink] | None = None,
     sleep: SleepEntry | None = None,
     exercise: list[ExerciseEntry] | None = None,
     wellness: WellnessEntry | None = None,
     journal_note: str | None = None,
-) -> None:
-    """Append extracted tasks, links, and wellness data to Notion pages."""
+) -> list[str]:
+    """Append extracted tasks, links, and wellness data to Notion pages.
+    Returns a list of keys that failed to sync."""
     if not settings.enable_notion or not settings.notion_api_key:
         log.info("notion_disabled_or_missing_key")
-        return
+        return []
 
-    notion = AsyncClient(auth=settings.notion_api_key.get_secret_value())
+    notion = _get_notion()
+    failed = []
 
     # --- Append Tasks ---
     if tasks and settings.notion_to_do_page_id:
@@ -36,22 +61,24 @@ async def append_notion_blocks(
             elif t.priority == 3:
                 priority_str = " 💡 [Low]"
 
-            task_blocks.append({
-                "object": "block",
-                "type": "to_do",
-                "to_do": {
-                    "rich_text": [{"type": "text", "text": {"content": f"{t.task}{priority_str}"}}],
-                    "checked": False
+            task_blocks.append(
+                {
+                    "object": "block",
+                    "type": "to_do",
+                    "to_do": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": f"{t.task}{priority_str}"}}
+                        ],
+                        "checked": False,
+                    },
                 }
-            })
-        try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_to_do_page_id,
-                children=task_blocks
             )
+        try:
+            await _append_blocks(notion, settings.notion_to_do_page_id, task_blocks)
             log.info("notion_tasks_appended", count=len(tasks))
         except Exception as exc:
             log.error("notion_tasks_failed", error=str(exc))
+            failed.append("tasks")
 
     # --- Append Links ---
     if links and settings.notion_to_read_page_id:
@@ -61,27 +88,27 @@ async def append_notion_blocks(
             if link.context:
                 content += f"{link.context} - "
             content += f"{link.url}"
-                
-            link_blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [
-                        {
-                            "type": "text", 
-                            "text": {"content": content, "link": {"url": str(link.url)}}
-                        }
-                    ]
+
+            link_blocks.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [
+                            {
+                                "type": "text",
+                                "text": {"content": content, "link": {"url": str(link.url)}},
+                            }
+                        ]
+                    },
                 }
-            })
-        try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_to_read_page_id,
-                children=link_blocks
             )
+        try:
+            await _append_blocks(notion, settings.notion_to_read_page_id, link_blocks)
             log.info("notion_links_appended", count=len(links))
         except Exception as exc:
             log.error("notion_links_failed", error=str(exc))
+            failed.append("reading_links")
 
     # --- Append Sleep ---
     if sleep and settings.notion_sleep_page_id:
@@ -90,21 +117,25 @@ async def append_notion_blocks(
             text += f" | Quality: {sleep.quality}"
         if sleep.notes:
             text += f" | Notes: {sleep.notes}"
-            
+
         try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_sleep_page_id,
-                children=[{
-                    "object": "block", 
-                    "type": "bulleted_list_item", 
-                    "bulleted_list_item": {
-                        "rich_text": [{"type": "text", "text": {"content": text}}]
+            await _append_blocks(
+                notion,
+                settings.notion_sleep_page_id,
+                [
+                    {
+                        "object": "block",
+                        "type": "bulleted_list_item",
+                        "bulleted_list_item": {
+                            "rich_text": [{"type": "text", "text": {"content": text}}]
+                        },
                     }
-                }]
+                ],
             )
             log.info("notion_sleep_appended")
         except Exception as exc:
             log.error("notion_sleep_failed", error=str(exc))
+            failed.append("sleep")
 
     # --- Append Exercise ---
     if exercise and settings.notion_exercise_page_id:
@@ -118,23 +149,23 @@ async def append_notion_blocks(
                 text += f" | Distance: {ex.distance_km}km"
             if ex.notes:
                 text += f" | Notes: {ex.notes}"
-            
-            ex_blocks.append({
-                "object": "block", 
-                "type": "bulleted_list_item", 
-                "bulleted_list_item": {
-                    "rich_text": [{"type": "text", "text": {"content": text}}]
+
+            ex_blocks.append(
+                {
+                    "object": "block",
+                    "type": "bulleted_list_item",
+                    "bulleted_list_item": {
+                        "rich_text": [{"type": "text", "text": {"content": text}}]
+                    },
                 }
-            })
-            
-        try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_exercise_page_id,
-                children=ex_blocks
             )
+
+        try:
+            await _append_blocks(notion, settings.notion_exercise_page_id, ex_blocks)
             log.info("notion_exercise_appended")
         except Exception as exc:
             log.error("notion_exercise_failed", error=str(exc))
+            failed.append("exercise")
 
     # --- Append Wellness ---
     if wellness and settings.notion_wellness_page_id:
@@ -151,35 +182,42 @@ async def append_notion_blocks(
             text += f" | Notes: {wellness.notes}"
 
         try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_wellness_page_id,
-                children=[{
-                    "object": "block", 
-                    "type": "bulleted_list_item", 
-                    "bulleted_list_item": {
-                        "rich_text": [{"type": "text", "text": {"content": text}}]
+            await _append_blocks(
+                notion,
+                settings.notion_wellness_page_id,
+                [
+                    {
+                        "object": "block",
+                        "type": "bulleted_list_item",
+                        "bulleted_list_item": {
+                            "rich_text": [{"type": "text", "text": {"content": text}}]
+                        },
                     }
-                }]
+                ],
             )
             log.info("notion_wellness_appended")
         except Exception as exc:
             log.error("notion_wellness_failed", error=str(exc))
+            failed.append("wellness")
 
     # --- Append Journal ---
     if journal_note and settings.notion_journal_page_id:
-        from datetime import date
         text = f"📝 {date.today()}: {journal_note}"
         try:
-            await notion.blocks.children.append(
-                block_id=settings.notion_journal_page_id,
-                children=[{
-                    "object": "block", 
-                    "type": "paragraph", 
-                    "paragraph": {
-                        "rich_text": [{"type": "text", "text": {"content": text}}]
+            await _append_blocks(
+                notion,
+                settings.notion_journal_page_id,
+                [
+                    {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {"rich_text": [{"type": "text", "text": {"content": text}}]},
                     }
-                }]
+                ],
             )
             log.info("notion_journal_appended")
         except Exception as exc:
             log.error("notion_journal_failed", error=str(exc))
+            failed.append("journal_note")
+
+    return failed
