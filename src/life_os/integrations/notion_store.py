@@ -87,7 +87,8 @@ async def append_notion_blocks(
             content = "🔖 "
             if link.context:
                 content += f"{link.context} - "
-            content += f"{link.url}"
+            url = link.url_str()
+            content += url
 
             link_blocks.append(
                 {
@@ -97,7 +98,7 @@ async def append_notion_blocks(
                         "rich_text": [
                             {
                                 "type": "text",
-                                "text": {"content": content, "link": {"url": str(link.url)}},
+                                "text": {"content": content, "link": {"url": url}},
                             }
                         ]
                     },

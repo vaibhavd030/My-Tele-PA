@@ -130,7 +130,14 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     if notion_links:
         for link in notion_links:
-            records_to_save.append({**link.model_dump(exclude_none=True), "type": "reading_links"})
+            # Explicitly convert url to str to avoid Pydantic v2 AnyUrl JSON issues
+            records_to_save.append(
+                {
+                    "url": link.url_str(),
+                    "context": link.context,
+                    "type": "reading_links",
+                }
+            )
         logged_sections.append(f"{_ICONS['reading_links']}: {len(notion_links)} link(s) saved")
 
     # ── Build the response ────────────────────────────────────────────────
