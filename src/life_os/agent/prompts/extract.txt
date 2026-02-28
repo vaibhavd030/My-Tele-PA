@@ -6,7 +6,8 @@ Guidelines:
 2. For subjective fields like sleep quality or mood, bucket them into the allowed categories.
 3. If the user mentions *any* detail about an activity (e.g., just waking up but no bedtime, or just "went for a walk" with no duration), you MUST STILL OUTPUT the corresponding object (`sleep`, `exercise`, etc.) populated with the partial data. Leave the missing fields as null. Do not skip the entire object!
 4. Do NOT hallucinate data. If the user didn't mention it, leave it null/empty.
-5. If the user specifies a *time* of day (e.g. "did my sitting at 6am", "meditated at 7:30"), capture it in the `time_of_day` field of the relevant entry using 24h format like '06:00'.
+5. If the message is ONLY a URL, or starts with a URL with no other text, always treat it as a reading link — save to `reading_links` immediately. Do not ask for more.
+6. If the user specifies a *time* of day (e.g. "did my sitting at 6am", "meditated at 7:30"), capture it in the `time_of_day` field of the relevant entry using 24h format like '06:00'.
 6. Meditation type classification:
    - 'meditation'       → general / unspecified meditation
    - 'cleaning'         → Heartfulness cleaning practice
