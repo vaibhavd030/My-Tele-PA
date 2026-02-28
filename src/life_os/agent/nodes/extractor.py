@@ -145,6 +145,13 @@ async def run(state: AgentState) -> AgentState:
                 old_dict = ex_val.model_dump(exclude_unset=True, exclude_none=True)
                 new_dict = new_val.model_dump(exclude_unset=True, exclude_none=True)
                 merged[k] = {**old_dict, **new_dict}
+            elif isinstance(ex_val, str) and isinstance(new_val, str):
+                if new_val in ex_val:
+                    merged[k] = ex_val
+                elif len(new_val) <= 40 or len(new_val) < len(ex_val) * 0.5:
+                    merged[k] = ex_val  # don't overwrite long notes with short clarification notes
+                else:
+                    merged[k] = ex_val + "\n\n" + new_val
             else:
                 merged[k] = new_val
         elif new_val is not None:
