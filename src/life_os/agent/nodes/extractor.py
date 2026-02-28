@@ -177,6 +177,18 @@ async def run(state: AgentState) -> AgentState:
         else:
             serialized[k] = v
 
+    # ── Post-process filters ──────────────────────────────────────────────
+    # Sometimes the LLM stubbornly categorizes meditation as an "other" exercise.
+    if "exercise" in serialized and isinstance(serialized["exercise"], list):
+        filtered_exercise = []
+        for ex in serialized["exercise"]:
+            if isinstance(ex, dict) and ex.get("exercise_type") == "other":
+                notes = str(ex.get("notes", "")).lower()
+                if "meditat" in notes or "cleaning" in notes or "sitting" in notes:
+                    continue  # drop it
+            filtered_exercise.append(ex)
+        serialized["exercise"] = filtered_exercise
+
     # ── Missing-field checks (work on serialized plain dicts) ─────────────
     # Only report a field as missing if:
     # 1. It is genuinely absent in the merged entity, AND
