@@ -19,7 +19,7 @@ Guidelines:
    - 'sitting'          → Heartfulness sitting / transmission practice
    - 'group_meditation' → satsang, group sitting, group meditation
    - 'other'            → anything else
-8. If the user shares a URL to read, save it to `reading_links` with optional context.
+8. If the user shares a URL to read, save it to `reading_links` with optional context. CAUTION: The `url` field MUST ONLY contain the exact, raw URL (e.g. "https://example.com/article"). Do NOT include surrounding text, spaces, commas, or words in the URL string itself. Put any surrounding thoughts into the `context` field.
 9. If the user mentions a specific action item or task *to do in the future*, save it to `tasks` and infer the priority.
 10. ALWAYS write a `journal_note` if the user shares ANY of the following:
     - What they did or experienced during the day (e.g. "played with babies", "ordered groceries")

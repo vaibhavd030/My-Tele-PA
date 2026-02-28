@@ -1,9 +1,17 @@
-{"id": "sleep_001", "input": "slept at 11 woke up at 630 felt amazing", "expected": {"sleep": {"bedtime_hour": 23, "bedtime_minute": 0, "wake_hour": 6, "wake_minute": 30, "quality": "excellent"}}, "tags": ["sleep", "complete"]}
-{"id": "mixed_001", "input": "ran 5k this morning and meditated 15 mins, mood is a solid 8", "expected": {"exercise": [{"exercise_type": "run", "distance_km": 5.0}], "wellness": {"meditation_minutes": 15, "mood_score": 8}}, "tags": ["exercise", "wellness", "complete"]}
-{"id":"sleep_002","input":"woke up at 7 but cant remember when i slept", "expected":{"sleep":{"wake_hour":7,"wake_minute":0}}}
-{"id":"sleep_003","input":"slept badly, maybe 5 hours", "expected":{"sleep":{"duration_hours":5.0,"quality":"poor"}}}
-{"id":"exercise_001","input":"went for a walk this morning for 45 mins", "expected":{"exercise":[{"exercise_type":"walk","duration_minutes":45}]}}
-{"id":"exercise_002","input":"ran 10k in 55 minutes", "expected":{"exercise":[{"exercise_type":"run","duration_minutes":55,"distance_km":10.0}]}}
-{"id":"task_001","input":"remind me to call the dentist tomorrow", "expected":{"tasks":[{"task":"call the dentist"}]}}
-{"id":"wellness_001","input":"meditated 20 mins, feeling great today, energy 9", "expected":{"wellness":{"meditation_minutes":20,"energy_level":9}}}
-{"id":"multi_001","input":"8hrs sleep, ran 5k, meditated 10 mins", "expected":{"sleep":{"duration_hours":8.0},"exercise":[{"exercise_type":"run","distance_km":5.0}],"wellness":{"meditation_minutes":10}}}
+{"id":"sleep_001","input":"slept at 11 woke up at 630 felt amazing","expected":{"sleep":{"bedtime_hour":23,"bedtime_minute":0,"wake_hour":6,"wake_minute":30,"quality":"excellent"}},"tags":["sleep","complete"]}
+{"id":"mixed_001","input":"ran 5k this morning and meditated 15 mins, mood is a solid 8","expected":{"exercise":[{"exercise_type":"run","distance_km":5.0}],"wellness":{"meditation_minutes":15,"mood_score":8}},"tags":["exercise","wellness","complete"]}
+{"id":"sleep_002","input":"woke up at 7 but cant remember when i slept","expected":{"sleep":{"wake_hour":7,"wake_minute":0}}}
+{"id":"sleep_003","input":"slept badly, maybe 5 hours","expected":{"sleep":{"duration_hours":5.0,"quality":"poor"}}}
+{"id":"exercise_001","input":"went for a walk this morning for 45 mins","expected":{"exercise":[{"exercise_type":"walk","duration_minutes":45}]}}
+{"id":"exercise_002","input":"ran 10k in 55 minutes","expected":{"exercise":[{"exercise_type":"run","duration_minutes":55,"distance_km":10.0}]}}
+{"id":"task_001","input":"remind me to call the dentist tomorrow","expected":{"tasks":[{"task":"call the dentist"}]}}
+{"id":"wellness_001","input":"meditated 20 mins, feeling great today, energy 9","expected":{"wellness":{"meditation_minutes":20,"energy_level":9}}}
+{"id":"multi_001","input":"8hrs sleep, ran 5k, meditated 10 mins","expected":{"sleep":{"duration_hours":8.0},"exercise":[{"exercise_type":"run","distance_km":5.0}],"wellness":{"meditation_minutes":10}}}
+{"id":"gym_001","input":"weights training for 45 mins, did chest and triceps","expected":{"exercise":[{"exercise_type":"weights","duration_minutes":45,"body_parts":["chest","triceps"]}]}}
+{"id":"meditation_001","input":"did my cleaning for 30 mins tonight","expected":{"wellness":{"meditation_minutes":30,"meditation_type":"cleaning"}}}
+{"id":"meditation_002","input":"sat for group meditation this morning, 45 minutes","expected":{"wellness":{"meditation_minutes":45,"meditation_type":"group_meditation"}}}
+{"id":"url_001","input":"https://github.com/langchain-ai/langgraph","expected":{"reading_links":[{"url":"https://github.com/langchain-ai/langgraph"}]}}
+{"id":"url_002","input":"to read: https://example.com/article about ai","expected":{"reading_links":[{"url":"https://example.com/article","context":"about ai"}]}}
+{"id":"journal_001","input":"played with my dogs today, it was really fun but exhausting","expected":{"journal_note":"Played with dogs today; it was really fun but exhausting."}}
+{"id":"complex_001","input":"went to gym for 1 hour, did full body. also meditated 20 mins (sitting) and feeling a bit tired now.","expected":{"exercise":[{"exercise_type":"gym","duration_minutes":60,"body_parts":["full_body"]}],"wellness":{"meditation_minutes":20,"meditation_type":"sitting"},"journal_note":"Feeling a bit tired now after going to the gym and meditating."}}
+{"id":"complex_002","input":"slept 7 hours, read https://news.ycombinator.com, and need to buy milk","expected":{"sleep":{"duration_hours":7.0},"reading_links":[{"url":"https://news.ycombinator.com"}],"tasks":[{"task":"buy milk"}]}}
