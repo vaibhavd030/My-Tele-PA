@@ -157,6 +157,13 @@ async def run(state: AgentState) -> AgentState:
             serialized[k] = v
 
     # ── Missing-field checks (work on serialized plain dicts) ─────────────
+    # Only report a field as missing if:
+    # 1. It is genuinely absent in the merged entity, AND
+    # 2. It was NOT already asked in the previous clarification turn
+    #    (if it was asked and still missing, the LLM didn't extract it from
+    #     the user's reply — we will give it one more chance via the prompt,
+    #     but cap re-asking using clarification_count in graph.py)
+    prior_missing: list[str] = state.get("missing_fields") or []
     missing: list[str] = []
 
     exercise_list = serialized.get("exercise", [])
@@ -164,16 +171,33 @@ async def run(state: AgentState) -> AgentState:
         if isinstance(ex, dict):
             if not ex.get("exercise_type") and "exercise type" not in missing:
                 missing.append("exercise type")
-            if not ex.get("duration_minutes") and "exercise duration" not in missing:
+            # Don't re-ask for duration if we already asked — persist what we have
+            if (
+                not ex.get("duration_minutes")
+                and "exercise duration" not in missing
+                and "exercise duration" not in prior_missing
+            ):
                 missing.append("exercise duration")
 
     slp = serialized.get("sleep")
     if slp and isinstance(slp, dict):
-        if slp.get("bedtime_hour") is None and "bedtime" not in missing:
+        if (
+            slp.get("bedtime_hour") is None
+            and "bedtime" not in missing
+            and "bedtime" not in prior_missing
+        ):
             missing.append("bedtime")
-        if slp.get("wake_hour") is None and "wake up time" not in missing:
+        if (
+            slp.get("wake_hour") is None
+            and "wake up time" not in missing
+            and "wake up time" not in prior_missing
+        ):
             missing.append("wake up time")
-        if not slp.get("quality") and "sleep quality" not in missing:
+        if (
+            not slp.get("quality")
+            and "sleep quality" not in missing
+            and "sleep quality" not in prior_missing
+        ):
             missing.append("sleep quality")
 
     log.info("extraction_complete", fields_found=list(new_data.keys()), missing=missing)
