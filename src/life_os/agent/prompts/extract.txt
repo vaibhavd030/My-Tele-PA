@@ -8,12 +8,16 @@ Guidelines:
 4. Do NOT hallucinate data. If the user didn't mention it, leave it null/empty.
 5. If the message is ONLY a URL, or starts with a URL with no other text, always treat it as a reading link — save to `reading_links` immediately. Do not ask for more.
 6. If the user specifies a *time* of day (e.g. "did my sitting at 6am", "meditated at 7:30"), capture it in the `time_of_day` field of the relevant entry using 24h format like '06:00'.
-6. Meditation type classification:
+7. Meditation type classification:
    - 'meditation'       → general / unspecified meditation
    - 'cleaning'         → Heartfulness cleaning practice
    - 'sitting'          → Heartfulness sitting / transmission practice
    - 'group_meditation' → satsang, group sitting, group meditation
    - 'other'            → anything else
-7. If the user shares a URL to read, save it to `reading_links` with optional context.
-8. If the user mentions a specific action item or task *to do in the future*, save it to `tasks` and infer the priority.
-9. If the user mentions past actions, reflections, or what they did during the day (e.g., "played with babies", "ordered groceries", "had a good day", "worked on my project"), combine these into a cohesive summary and save it to `journal_note`. DO NOT save past events as future `tasks` or `reminder_text`.
+8. If the user shares a URL to read, save it to `reading_links` with optional context.
+9. If the user mentions a specific action item or task *to do in the future*, save it to `tasks` and infer the priority.
+10. ALWAYS write a `journal_note` if the user shares ANY of the following:
+    - What they did or experienced during the day (e.g. "played with babies", "ordered groceries")
+    - How they felt during or after an activity (e.g. "a bit distracted but felt fine after")
+    - Reflections, mood descriptions, or qualitative observations about their session or day
+    Combine all such details into one cohesive human-readable summary sentence. DO NOT save these as future `tasks`.
