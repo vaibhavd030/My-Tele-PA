@@ -1,0 +1,2 @@
+{"id": "sleep_001", "input": "slept at 11 woke up at 630 felt amazing", "expected": {"sleep": {"bedtime_hour": 23, "bedtime_minute": 0, "wake_hour": 6, "wake_minute": 30, "quality": "excellent"}}, "tags": ["sleep", "complete"]}
+{"id": "mixed_001", "input": "ran 5k this morning and meditated 15 mins, mood is a solid 8", "expected": {"exercise": [{"exercise_type": "run", "distance_km": 5.0}], "wellness": {"meditation_minutes": 15, "mood_score": 8}}, "tags": ["exercise", "wellness", "complete"]}

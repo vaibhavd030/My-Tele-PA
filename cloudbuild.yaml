@@ -1,0 +1,62 @@
+# Triggers on every push to main branch
+# Runs: format check → lint → type check → tests → eval → deploy
+
+steps:
+  # ── Install dependencies ───────────────────────────────────────────────
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['sync', '--frozen']
+    id: 'install'
+
+  # ── Code quality checks ────────────────────────────────────────────────
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['run', 'black', '--check', 'src/', 'tests/']
+    id: 'format-check'
+    waitFor: ['install']
+
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['run', 'ruff', 'check', 'src/', 'tests/']
+    id: 'lint'
+    waitFor: ['install']
+
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['run', 'mypy', 'src/']
+    id: 'type-check'
+    waitFor: ['install']
+
+  # ── Tests ──────────────────────────────────────────────────────────────
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['run', 'pytest', 'tests/unit', 'tests/integration', '-v', '--tb=short']
+    id: 'test'
+    waitFor: ['format-check', 'lint', 'type-check']
+    env:
+      - 'OPENAI_API_KEY=${_OPENAI_API_KEY_TEST}'  # Cheap test key
+      - 'TELEGRAM_BOT_TOKEN=fake_token_for_tests'
+      - 'TELEGRAM_CHAT_ID=0'
+
+  # ── Evals (only on main branch pushes) ─────────────────────────────────
+  - name: 'ghcr.io/astral-sh/uv:latest'
+    args: ['run', 'python', '-m', 'life_os.evals.run_evals']
+    id: 'evals'
+    waitFor: ['test']
+
+  # ── Docker build & push ─────────────────────────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/life-os-agent:$COMMIT_SHA', '.']
+    waitFor: ['evals']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/life-os-agent:$COMMIT_SHA']
+
+  # ── Deploy to Cloud Run ─────────────────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run', 'deploy', 'life-os-agent'
+      - '--image', 'gcr.io/$PROJECT_ID/life-os-agent:$COMMIT_SHA'
+      - '--region', 'us-central1'
+      - '--platform', 'managed'
+      - '--min-instances', '0'
+      - '--max-instances', '1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

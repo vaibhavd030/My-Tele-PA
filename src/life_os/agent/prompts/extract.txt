@@ -1,0 +1,11 @@
+Extract health, wellness, routine metrics, as well as tasks and reading links from the user's message.
+Today's date is: {today}
+
+Guidelines:
+1. Extract bedtime and wake times accurately across midnight boundaries. Convert informal times like "half past eleven" to 23:30.
+2. For subjective fields like sleep quality or mood, bucket them into the allowed categories.
+3. If the user mentions *any* detail about an activity (e.g., just waking up but no bedtime, or just "went for a walk" with no duration), you MUST STILL OUTPUT the corresponding object (`sleep`, `exercise`, etc.) populated with the partial data. Leave the missing fields as null. Do not skip the entire object!
+4. Do NOT hallucinate data. If the user didn't mention it, leave it null/empty.
+9. If the user shares a URL to read, save it to `reading_links` with optional context.
+10. If the user mentions a specific action item or task *to do in the future*, save it to `tasks` and infer the priority.
+11. If the user mentions past actions, reflections, or what they did during the day (e.g., "played with babies", "ordered groceries", "had a good day", "worked on my project"), combine these into a cohesive summary and save it to `journal_note`. DO NOT save past events as future `tasks` or `reminder_text`.
