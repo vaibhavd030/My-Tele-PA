@@ -79,8 +79,11 @@ Strict validation schemas.
 - **`notion_store.py`**: Initializes the `AsyncClient`. Maps our custom Pydantic models into the extremely specific mapping arrays required by Notion's rich-text block API natively.
 
 #### `telegram/`
-- **`bot.py`**: Translates Telegram Update payloads into strings, passes them to `app.ainvoke(state)` (LangGraph executing), then forwards the `response_message` back to the user via Telegram API. Also implements authentication by validating allowed Telegram User IDs.
-- **`jobs.py`**: The APScheduler instance housing `send_morning_checkin()` and `send_weekly_digest()`.
+- **`bot.py`**: The main entry point bridging Telegram to LangGraph. It uses `python-telegram-bot` to constantly poll the Telegram API for new messages (`Update` objects). 
+  - **Authentication**: When a message arrives, it immediately checks if the `user_id` is in the allowed whitelist. If not, it drops the message silently.
+  - **Execution Bridge**: Valid messages are mapped into a `raw_input` string and fed into `app.ainvoke(state, config={"configurable": {"thread_id": user_id}})`. This executes the LangGraph state machine.
+  - **Response Routing**: Once LangGraph yields a final state, `bot.py` extracts the `response_message` string and uses `context.bot.send_message` to push it back to the user's Telegram chat.
+- **`jobs.py`**: The APScheduler instance housing `send_morning_checkin()` and `send_weekly_digest()`. These run on cron schedules and push standalone messages to the user entirely independent of graph execution.
 
 #### `evals/`
 - **`run_evals.py` & `metrics.py`**: A custom pipeline. Feeds `.jsonl` conversational mock messages into the Extractor, calculates exact precision/recall using F1 scoring on dictionary keys mapping. Ensures PRs don't break existing extraction accuracy. 
@@ -96,6 +99,6 @@ Strict validation schemas.
 
 ## 5. Interactions via MCP (Model Context Protocol)
 
-Currently, the primary integrations are **SQLite** and **Notion APIs** operating directly within standard custom python wrappers. 
+Currently, the primary external integrations are **SQLite** and **Notion APIs** operating directly within standard custom python wrappers as LangGraph Nodes (`query.py` and `persister.py`). 
 
-While there are no explicit external MCP servers instantiated in the repository (e.g. the previously discussed generic MCP adapter was removed post refactoring to simplify the codebase), the LangGraph generic agent architecture allows for instantaneous plugging of MCP servers by simply dropping them in as `ToolNodes` on the `graph.py` pipeline if required in the future.
+There are currently no external MCP servers instantiated in the repository. The LangGraph generic agent architecture allows for instantaneous plugging of MCP servers by dropping them in as `ToolNodes` on the `graph.py` pipeline if required in the future, but the current production flow relies natively on direct SDK connections.
