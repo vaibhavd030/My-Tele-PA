@@ -9,6 +9,10 @@ Guidelines:
 5. If the message is ONLY a URL, or starts with a URL with no other text, always treat it as a reading link — save to `reading_links` immediately. Do not ask for more.
 5a. CLARIFICATION CONTEXT: If the chat history shows the assistant asked for a specific field (e.g. "Could you also specify the exercise duration?"), and the user's reply is a short answer (e.g. "30 mins", "7am"), treat it as the answer to that specific question. Re-extract the FULL relevant entity (e.g. exercise, sleep) incorporating that answer — do not leave the entity empty just because the user's reply was short.
 6. If the user specifies a *time* of day (e.g. "did my sitting at 6am", "meditated at 7:30"), capture it in the `time_of_day` field of the relevant entry using 24h format like '06:00'.
+6b. GYM / WEIGHTS body parts: If the exercise_type is 'gym' or 'weights', extract `body_parts` as a list from:
+   full_body, chest, biceps, triceps, shoulders, back, abs, lower_body
+   If the user says "weights training", "gym", "lifting", etc. without specifying body parts, leave `body_parts` null (the agent will ask).
+   If the user says e.g. "chest and triceps day" or "leg day", populate `body_parts` accordingly.
 7. Meditation type classification:
    - 'meditation'       → general / unspecified meditation
    - 'cleaning'         → Heartfulness cleaning practice

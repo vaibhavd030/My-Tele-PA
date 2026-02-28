@@ -88,17 +88,37 @@ class ExerciseType(enum.StrEnum):
     RUN = "run"
     WALK = "walk"
     GYM = "gym"
+    WEIGHTS = "weights"  # alias for gym-specific weight training
     YOGA = "yoga"
     SWIM = "swim"
     CYCLE = "cycle"
     OTHER = "other"
 
 
+class MuscleGroup(enum.StrEnum):
+    FULL_BODY = "full_body"
+    CHEST = "chest"
+    BICEPS = "biceps"
+    TRICEPS = "triceps"
+    SHOULDERS = "shoulders"
+    BACK = "back"
+    ABS = "abs"
+    LOWER_BODY = "lower_body"  # legs, glutes, hamstrings, quads
+    OTHER = "other"
+
+
 class ExerciseEntry(BaseModel):
-    # Single exercise session.
+    """A single exercise / training session."""
 
     date: dt_date
     exercise_type: ExerciseType | None = None
+    body_parts: list[MuscleGroup] | None = Field(
+        default=None,
+        description=(
+            "Muscle groups trained — only for gym/weights sessions. "
+            "Options: full_body, chest, biceps, triceps, shoulders, back, abs, lower_body."
+        ),
+    )
     duration_minutes: Annotated[int, Field(gt=0, le=600)] | None = None
     distance_km: Annotated[float, Field(ge=0)] | None = None
     intensity: Annotated[int, Field(ge=1, le=10)] | None = Field(default=None)

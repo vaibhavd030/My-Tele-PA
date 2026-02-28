@@ -178,6 +178,15 @@ async def run(state: AgentState) -> AgentState:
                 and "exercise duration" not in prior_missing
             ):
                 missing.append("exercise duration")
+            # Ask for body part if gym/weights and not already provided or asked
+            is_gym = ex.get("exercise_type") in ("gym", "weights")
+            if (
+                is_gym
+                and not ex.get("body_parts")
+                and "body part" not in missing
+                and "body part" not in prior_missing
+            ):
+                missing.append("body part")
 
     slp = serialized.get("sleep")
     if slp and isinstance(slp, dict):
@@ -210,7 +219,21 @@ async def run(state: AgentState) -> AgentState:
     }
 
     if missing:
-        missing_str = ", ".join(missing)
-        state_updates["response_message"] = f"Got it! Could you also specify the {missing_str}?"
+        if missing == ["body part"]:
+            state_updates["response_message"] = (
+                "Which body part(s) did you train? "
+                "Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body"
+            )
+        else:
+            other = [m for m in missing if m != "body part"]
+            parts = []
+            if other:
+                parts.append(f"Could you also specify the {', '.join(other)}?")
+            if "body part" in missing:
+                parts.append(
+                    "Which body part(s) did you train? "
+                    "Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body"
+                )
+            state_updates["response_message"] = " ".join(parts)
 
     return state_updates
