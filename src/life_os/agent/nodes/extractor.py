@@ -81,9 +81,13 @@ async def run(state: AgentState) -> AgentState:
     """
     log.info("extracting_entities", user_id=state["user_id"])
 
-    # Build a simple string of the last few messages for the LLM
-    history = state.get("chat_history", [])
-    history_str = "\n".join([f"{msg.type}: {msg.content}" for msg in history[-5:]])
+    # Only provide chat history context to the LLM if we are actively in a clarification loop.
+    # Otherwise, it might re-extract old entities from previous, resolved conversations.
+    if state.get("missing_fields"):
+        history = state.get("chat_history", [])
+        history_str = "\n".join([f"{msg.type}: {msg.content}" for msg in history[-5:]])
+    else:
+        history_str = ""
 
     extracted = await _call_llm(
         text=state["raw_input"], today=date.today(), chat_history=history_str
