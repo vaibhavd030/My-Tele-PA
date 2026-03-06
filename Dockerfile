@@ -24,6 +24,7 @@ WORKDIR /app
 # Copy venv from builder (no build tools in runtime image)
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
 # Copy application source
 COPY src/ ./src/
