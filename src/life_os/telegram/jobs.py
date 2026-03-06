@@ -5,15 +5,14 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import structlog
-from openai import AsyncOpenAI
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from life_os.config.clients import get_openai_client
 from life_os.config.settings import settings
 from life_os.integrations.sqlite_store import get_db
 
 log = structlog.get_logger(__name__)
-client = AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value())
 
 
 async def send_morning_checkin(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -36,16 +35,13 @@ async def send_weekly_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(chat_id)
 
     db = await get_db()
-    try:
-        seven_days_ago = (datetime.now() - timedelta(days=7)).date().isoformat()
-        cursor = await db.execute(
-            "SELECT date, type, data FROM records "
-            "WHERE user_id = ? AND date >= ? ORDER BY date DESC",
-            (user_id, seven_days_ago),
-        )
-        rows = await cursor.fetchall()
-    finally:
-        await db.close()
+    seven_days_ago = (datetime.now() - timedelta(days=7)).date().isoformat()
+    cursor = await db.execute(
+        "SELECT date, type, data FROM records "
+        "WHERE user_id = ? AND date >= ? ORDER BY date DESC",
+        (user_id, seven_days_ago),
+    )
+    rows = await cursor.fetchall()
 
     if not rows:
         await context.bot.send_message(
@@ -80,7 +76,7 @@ async def send_weekly_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Data:\n{data_markdown}"
     )
 
-    response = await client.chat.completions.create(
+    response = await get_openai_client().chat.completions.create(
         model=settings.openai_model, temperature=0.3, messages=[{"role": "user", "content": prompt}]
     )
 

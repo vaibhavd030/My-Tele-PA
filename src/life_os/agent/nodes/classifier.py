@@ -5,17 +5,14 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-import instructor
 import structlog
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from life_os.agent.state import AgentState
+from life_os.config.clients import get_instructor_client, calculate_cost
 from life_os.config.settings import settings
 
 log = structlog.get_logger(__name__)
-
-client = instructor.from_openai(AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value()))
 
 
 class Intent(StrEnum):
@@ -34,7 +31,7 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     text = state["raw_input"]
 
-    classification = await client.chat.completions.create(
+    classification, raw_response = await get_instructor_client().chat.completions.create_with_completion(
         model=settings.openai_model,
         response_model=MessageIntent,
         temperature=0.0,
@@ -57,4 +54,9 @@ async def run(state: AgentState) -> dict[str, Any]:
         ],
     )
 
-    return {"intent": classification.intent.value}
+    tokens, cost = calculate_cost(raw_response.usage)
+    return {
+        "intent": classification.intent.value,
+        "total_tokens": tokens,
+        "total_cost_usd": cost,
+    }

@@ -4,7 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from life_os.agent.graph import app as agent_app
+from life_os.agent.graph import get_app
 from life_os.evals.metrics import slot_fill_f1
 
 PASS_THRESHOLD_F1 = 0.80  # Fail CI if below this
@@ -20,6 +20,7 @@ async def run_extraction_evals() -> dict[str, float]:
     cases = [json.loads(line) for line in dataset.read_text().splitlines()]
 
     results = []
+    agent_app = await get_app()
     for case in cases:
         predicted = {}
         async for step in agent_app.astream(

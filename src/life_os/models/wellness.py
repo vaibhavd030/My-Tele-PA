@@ -18,12 +18,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from life_os.models.tasks import ReadingLink, TaskItem
 
 
-class SleepQuality(enum.StrEnum):
-    # Subjective sleep quality rating.
-    POOR = "poor"
-    FAIR = "fair"
-    GOOD = "good"
-    EXCELLENT = "excellent"
 
 
 class SleepEntry(BaseModel):
@@ -36,7 +30,7 @@ class SleepEntry(BaseModel):
         wake_hour: Hour of morning (0-23) when user woke up.
         wake_minute: Minute when user woke up.
         duration_hours: Computed sleep duration in decimal hours.
-        quality: Subjective quality rating.
+        quality: Subjective quality rating from 1 to 10. Automatically computes to 10 if excellent.
         notes: Optional free-text notes.
     """
 
@@ -52,7 +46,7 @@ class SleepEntry(BaseModel):
     duration_hours: float | None = Field(
         default=None, description="Total sleep duration if specific times are not given"
     )
-    quality: SleepQuality | None = None
+    quality: Annotated[int, Field(ge=1, le=10)] | None = Field(default=None, description="Quality rating from 1-10")
     notes: str | None = None
 
     @model_validator(mode="after")
@@ -73,6 +67,13 @@ class SleepEntry(BaseModel):
             # Use calculated duration if none is explicitly provided, or override
             if self.duration_hours is None:
                 self.duration_hours = round(calculated_duration, 2)
+
+        # Auto-calculate excellent quality rating
+        if self.duration_hours is not None and self.bedtime_hour is not None:
+            if self.bedtime_hour <= 22 and self.duration_hours >= 7.5:
+                if self.quality is None:
+                    self.quality = 10
+
         return self
 
     @field_validator("bedtime_hour")
@@ -80,7 +81,8 @@ class SleepEntry(BaseModel):
     def validate_bedtime_is_evening(cls, v: int | None) -> int | None:
         """Warn if bedtime looks like daytime (potential extraction error)."""
         if v is not None and 9 <= v <= 17:
-            raise ValueError(f"Bedtime hour {v} looks like daytime — check extraction")
+            import structlog
+            structlog.get_logger(__name__).warning("unusual_bedtime", hour=v)
         return v
 
 

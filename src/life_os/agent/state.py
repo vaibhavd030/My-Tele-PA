@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, TypedDict
+import operator
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
+
+
+def add_metadata(left: int | float | None, right: int | float | None) -> int | float:
+    return (left or 0) + (right or 0)
 
 
 class AgentState(TypedDict, total=False):
@@ -26,10 +31,15 @@ class AgentState(TypedDict, total=False):
     chat_history: Annotated[list[AnyMessage], add_messages]
     user_id: str
     raw_input: str
-    entities: dict[str, Any]
+    entities: Annotated[dict[str, Any], operator.ior]
     missing_fields: list[str]
     clarification_count: int
     intent: str | None
     abort: bool
+    input_modality: str | None
+    voice_file_id: str | None
     response_message: str | None
     structured_records: list[dict[str, Any]]
+    last_interaction_ts: float
+    total_tokens: Annotated[int, add_metadata]
+    total_cost_usd: Annotated[float, add_metadata]

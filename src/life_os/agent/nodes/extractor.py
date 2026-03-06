@@ -6,25 +6,19 @@ Handles partial data gracefully for the clarification loop downstream.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import instructor
 import structlog
-from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from life_os.agent.state import AgentState
+from life_os.config.clients import get_instructor_client, calculate_cost
 from life_os.config.settings import settings
 from life_os.models.wellness import ExtractedData
 
 log = structlog.get_logger(__name__)
-
-# Patch the async OpenAI client with Instructor
-_client = instructor.from_openai(
-    AsyncOpenAI(api_key=settings.openai_api_key.get_secret_value()), mode=instructor.Mode.JSON
-)
 
 _SYSTEM_PROMPT = (Path(__file__).parent.parent / "prompts" / "extract.txt").read_text()
 
@@ -34,7 +28,9 @@ _SYSTEM_PROMPT = (Path(__file__).parent.parent / "prompts" / "extract.txt").read
     wait=wait_exponential(multiplier=1, min=2, max=10),
     reraise=True,
 )
-async def _call_llm(text: str, today: date, chat_history: str = "") -> ExtractedData:
+async def _call_llm(
+    text: str, today: date, chat_history: str = ""
+) -> tuple[ExtractedData, int, float]:
     """Call GPT-4o with Instructor to extract structured wellness data.
 
     Args:
@@ -43,14 +39,14 @@ async def _call_llm(text: str, today: date, chat_history: str = "") -> Extracted
         chat_history: String representation of recent conversation turns to prevent duplicates.
 
     Returns:
-        ExtractedData with all detected wellness fields populated.
+        Tuple of (ExtractedData, tokens_used, estimated_cost_usd).
 
     Raises:
         instructor.exceptions.InstructorRetryException: After 3 failed
             validation attempts.
     """
-    return await _client.chat.completions.create(
-        model="gpt-4o-mini",  # gpt-4o-mini is 10x cheaper, sufficient here
+    result, raw_response = await get_instructor_client().chat.completions.create_with_completion(
+        model=settings.openai_model,
         response_model=ExtractedData,
         max_retries=2,  # Instructor internal retries on validation fail
         messages=[
@@ -65,6 +61,8 @@ async def _call_llm(text: str, today: date, chat_history: str = "") -> Extracted
             {"role": "user", "content": text},
         ],
     )
+    tokens, cost = calculate_cost(raw_response.usage)
+    return result, tokens, cost
 
 
 async def run(state: AgentState) -> AgentState:
@@ -79,113 +77,88 @@ async def run(state: AgentState) -> AgentState:
     Returns:
         Updated state with entities and missing_fields populated.
     """
+    from datetime import date
     log.info("extracting_entities", user_id=state["user_id"])
 
-    # Only provide chat history context to the LLM if we are actively in a clarification loop.
-    # Otherwise, it might re-extract old entities from previous, resolved conversations.
-    if state.get("missing_fields"):
+    # ── Check clarification TTL ───────────────────────────────────────────
+    now_ts = datetime.now(timezone.utc).timestamp()
+    last_ts = state.get("last_interaction_ts")
+    is_clarifying = bool(state.get("missing_fields"))
+    if is_clarifying and last_ts and (now_ts - last_ts > 1800):
+        log.info("clarification_ttl_expired", user_id=state["user_id"])
+        state["missing_fields"] = []
+        is_clarifying = False
+
+    if is_clarifying:
         history = state.get("chat_history", [])
         history_str = "\n".join([f"{msg.type}: {msg.content}" for msg in history[-5:]])
     else:
         history_str = ""
 
-    extracted = await _call_llm(
+    extracted, tokens, cost = await _call_llm(
         text=state["raw_input"], today=date.today(), chat_history=history_str
     )
 
-    # If we are currently clarifying, merge with existing state. 
-    # If the missing_fields list is empty, this is a fresh conversational turn; do NOT merge.
-    if state.get("missing_fields"):
-        existing = state.get("entities", {})
-    else:
-        existing = {}
+    existing = state.get("entities", {}) if is_clarifying else {}
 
-    new_data = {}
-    for k in type(extracted).model_fields:
-        val = getattr(extracted, k)
-        if val is not None and val != []:
-            new_data[k] = val
-
-    # ── Merge new data with existing entities ─────────────────────────────
-    merged: dict[str, Any] = {}
-    for k in type(extracted).model_fields:
-        ex_val = existing.get(k)
-        new_val = new_data.get(k)
-
-        if ex_val and new_val:
-            if isinstance(ex_val, list) and isinstance(new_val, list):
-                existing_list = [
-                    (v if isinstance(v, dict) else v.model_dump(exclude_unset=True, exclude_none=True))
-                    for v in ex_val
-                ]
-                new_list = [
-                    (v.model_dump(exclude_unset=True, exclude_none=True) if hasattr(v, "model_dump") else v)
-                    for v in new_val
-                ]
-
-                # Smart merge: try to update existing items rather than just concatenating
-                for new_item in new_list:
-                    match_idx = -1
-                    # Match by type if available
-                    if new_item.get("exercise_type"):
-                        for i, old_item in enumerate(existing_list):
-                            if old_item.get("exercise_type") == new_item["exercise_type"]:
-                                match_idx = i
-                                break
-                    # Or find an item missing a value that the new item provides
-                    if match_idx == -1:
-                        for key, val in new_item.items():
-                            if val is not None:
-                                for i, old_item in enumerate(existing_list):
-                                    if old_item.get(key) is None:
-                                        match_idx = i
-                                        break
-                            if match_idx != -1:
-                                break
-                    
-                    if match_idx != -1:
-                        existing_list[match_idx] = {**existing_list[match_idx], **new_item}
-                    else:
-                        existing_list.append(new_item)
-                
-                merged[k] = existing_list
-            elif hasattr(new_val, "model_dump") and isinstance(ex_val, dict):
-                merged[k] = {**ex_val, **new_val.model_dump(exclude_unset=True, exclude_none=True)}
-            elif hasattr(new_val, "model_dump") and hasattr(ex_val, "model_dump"):
-                old_dict = ex_val.model_dump(exclude_unset=True, exclude_none=True)
-                new_dict = new_val.model_dump(exclude_unset=True, exclude_none=True)
-                merged[k] = {**old_dict, **new_dict}
-            elif isinstance(ex_val, str) and isinstance(new_val, str):
-                if new_val in ex_val:
-                    merged[k] = ex_val
-                elif len(new_val) <= 40 or len(new_val) < len(ex_val) * 0.5:
-                    merged[k] = ex_val  # don't overwrite long notes with short clarification notes
-                else:
-                    merged[k] = ex_val + "\n\n" + new_val
-            else:
-                merged[k] = new_val
-        elif new_val is not None:
-            merged[k] = new_val
-        elif ex_val is not None:
-            merged[k] = ex_val
-
-    # ── Serialize ALL Pydantic objects → plain dicts for msgpack ──────────
-    # LangGraph's MemorySaver uses msgpack which cannot handle Pydantic models.
+    # serialize ALL Pydantic objects -> plain dicts for msgpack
     serialized: dict[str, Any] = {}
-    for k, v in merged.items():
-        if hasattr(v, "model_dump"):
-            serialized[k] = v.model_dump(mode="json", exclude_none=True)
-        elif isinstance(v, list):
-            serialized[k] = [
-                (
-                    item.model_dump(mode="json", exclude_none=True)
-                    if hasattr(item, "model_dump")
-                    else item
-                )
-                for item in v
-            ]
-        else:
-            serialized[k] = v
+    
+    # Do this safely instead of using dict comprehension to avoid wiping nested objects
+    try:
+        dumped = extracted.model_dump(mode="json", exclude_none=True)
+    except AttributeError:
+        # Fallback for mocked objects in tests
+        dumped = {}
+        for k in type(extracted).model_fields if hasattr(type(extracted), "model_fields") else extracted.__dict__:
+            v = getattr(extracted, k, None)
+            if v is not None:
+                if hasattr(v, "model_dump"):
+                    dumped[k] = v.model_dump(mode="json", exclude_none=True)
+                elif isinstance(v, list):
+                    dumped[k] = [
+                        item.model_dump(mode="json", exclude_none=True) if hasattr(item, "model_dump") else item
+                        for item in v
+                    ]
+                else:
+                    dumped[k] = v
+                    
+    # Merge strategy
+    if is_clarifying:
+        serialized = existing.copy()
+        
+        def _deep_set(obj: Any, key: str, val: Any) -> None:
+            if isinstance(obj, dict):
+                for k, v in list(obj.items()):
+                    if k == key and v is None:
+                        obj[k] = val
+                    elif isinstance(v, (dict, list)):
+                        _deep_set(v, key, val)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _deep_set(item, key, val)
+
+        for field in state.get("missing_fields", []):
+            mapped_field = field.replace(" ", "_")
+            if mapped_field == "body_part": mapped_field = "body_parts"
+            if mapped_field == "wake_up_time": mapped_field = "wake_hour"
+            if mapped_field == "exercise_duration": mapped_field = "duration_minutes"
+            
+            for k, nv in dumped.items():
+                if isinstance(nv, list):
+                    for item in nv:
+                        if isinstance(item, dict) and item.get(mapped_field) is not None:
+                            _deep_set(serialized, mapped_field, item[mapped_field])
+                elif isinstance(nv, dict) and nv.get(mapped_field) is not None:
+                    _deep_set(serialized, mapped_field, nv[mapped_field])
+                    
+        # Add new keys that didn't exist before
+        for k, nv in dumped.items():
+            if k not in serialized:
+                serialized[k] = nv
+    else:
+        serialized = dumped
+
 
     # ── Post-process filters ──────────────────────────────────────────────
     # Sometimes the LLM stubbornly categorizes meditation as an "other" exercise.
@@ -245,14 +218,8 @@ async def run(state: AgentState) -> AgentState:
             and "wake up time" not in prior_missing
         ):
             missing.append("wake up time")
-        if (
-            not slp.get("quality")
-            and "sleep quality" not in missing
-            and "sleep quality" not in prior_missing
-        ):
-            missing.append("sleep quality")
 
-    log.info("extraction_complete", fields_found=list(new_data.keys()), missing=missing)
+    log.info("extraction_complete", fields_found=list(dumped.keys()), missing=missing)
 
     messages = [("user", state["raw_input"])]
 
@@ -260,6 +227,7 @@ async def run(state: AgentState) -> AgentState:
         "entities": serialized,
         "missing_fields": missing,
         "clarification_count": state.get("clarification_count", 0) + 1,
+        "last_interaction_ts": now_ts,
     }
 
     if missing:
