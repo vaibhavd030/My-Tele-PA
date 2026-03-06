@@ -215,6 +215,7 @@ def main() -> None:
     else:
         log.info("starting_fastapi_webhook_server")
         import os
+
         import uvicorn
         from fastapi import FastAPI, Request, Response
         
@@ -231,7 +232,19 @@ def main() -> None:
         async def health_check() -> dict[str, str]:
             return {"status": "ok"}
 
+        def _run_migrations() -> None:
+            import alembic.command
+            import alembic.config
+            
+            alembic_cfg = alembic.config.Config("alembic.ini")
+            alembic.command.upgrade(alembic_cfg, "head")
+            log.info("schema_migrations_applied_successfully")
+
         async def run_fastapi() -> None:
+            # 1. Block application start until schemas map cleanly to the provisioned DB volume
+            await asyncio.to_thread(_run_migrations)
+            
+            # 2. Wire webhook integration dynamically
             webhook_url = settings.webhook_url
             if webhook_url:
                 await application.bot.set_webhook(url=f"{webhook_url.rstrip('/')}/webhook")
