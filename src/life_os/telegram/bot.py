@@ -214,6 +214,7 @@ def main() -> None:
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     else:
         log.info("starting_fastapi_webhook_server")
+        import os
         import uvicorn
         from fastapi import FastAPI, Request, Response
         
@@ -235,7 +236,8 @@ def main() -> None:
             if webhook_url:
                 await application.bot.set_webhook(url=f"{webhook_url.rstrip('/')}/webhook")
             
-            config = uvicorn.Config(app, host="0.0.0.0", port=8080)  # noqa: S104
+            port = int(os.environ.get("PORT", 8080))
+            config = uvicorn.Config(app, host="0.0.0.0", port=port)  # noqa: S104
             server = uvicorn.Server(config)
             
             async with application:
