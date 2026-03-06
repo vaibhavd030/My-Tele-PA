@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     weekly_report_day: str = Field(default="sun")
     max_clarification_turns: int = Field(default=3)
     timezone: str = Field(default="Europe/London")
+    webhook_url: str | None = Field(
+        default=None, description="Cloud Run HTTPS URL for Discord/Telegram Webhooks"
+    )
 
     @field_validator("openai_model")
     @classmethod

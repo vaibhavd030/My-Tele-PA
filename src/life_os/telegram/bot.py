@@ -213,8 +213,37 @@ def main() -> None:
     if args.mode == "polling":
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     else:
-        # Webhook setup logic goes here for cloudrun
-        application.run_webhook(listen="0.0.0.0", port=8080, url_path="webhook")  # noqa: S104
+        log.info("starting_fastapi_webhook_server")
+        import uvicorn
+        from fastapi import FastAPI, Request, Response
+        
+        app = FastAPI(title="Life OS Agent Webhook")
+        
+        @app.post("/webhook")
+        async def telegram_webhook(request: Request) -> Response:
+            await application.update_queue.put(
+                Update.de_json(data=await request.json(), bot=application.bot)
+            )
+            return Response(status_code=200)
+
+        @app.get("/health")
+        async def health_check() -> dict[str, str]:
+            return {"status": "ok"}
+
+        async def run_fastapi() -> None:
+            webhook_url = settings.webhook_url
+            if webhook_url:
+                await application.bot.set_webhook(url=f"{webhook_url.rstrip('/')}/webhook")
+            
+            config = uvicorn.Config(app, host="0.0.0.0", port=8080)  # noqa: S104
+            server = uvicorn.Server(config)
+            
+            async with application:
+                await application.start()
+                await server.serve()
+                await application.stop()
+
+        asyncio.run(run_fastapi())
 
 
 if __name__ == "__main__":
