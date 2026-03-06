@@ -45,8 +45,11 @@ def configure_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    os.makedirs("logs", exist_ok=True)
-    file_handler = RotatingFileHandler("logs/app.log", maxBytes=5_000_000, backupCount=3)
+    log_dir = os.path.dirname(settings.db_path) if settings.db_path else "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "app.log")
+    
+    file_handler = RotatingFileHandler(log_file, maxBytes=5_000_000, backupCount=3)
     file_handler.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler()
