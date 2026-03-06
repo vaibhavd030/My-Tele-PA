@@ -26,8 +26,10 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
-# Copy application source
+# Copy application source and database migrations
 COPY src/ ./src/
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
 # SQLite data directory (mapped to Cloud Storage volume in GCP)
 RUN mkdir /data && chown appuser:appuser /data
