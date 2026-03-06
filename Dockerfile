@@ -42,4 +42,4 @@ USER appuser
 ENV PORT=8080
 EXPOSE $PORT
 
-CMD python -m life_os.telegram.bot --mode polling
+CMD python -m life_os.telegram.bot --mode webhook
