@@ -12,8 +12,8 @@ The project sits at the intersection of Agentic AI, robust Data Engineering, and
 - **LangGraph** (`langgraph`): The backbone of the agent. Allows building cyclical graphs (state machines) where each node is a python function or LLM call. Crucial for handling multi-turn conversational memory (using `MemorySaver`) without looping endlessly.
 - **Instructor** (`instructor`): Exerts strict JSON schema constraints on the OpenAI API. It intercepts the LLM output and forces it to map perfectly to predefined Pydantic models.
 - **Pydantic v2** (`pydantic`): Strongly typed schemas. Used everywhere—from validating environmental variables (`BaseSettings`) to enforcing that sleep duration is an integer > 0 but < 24.
-- **SQLite & Aiosqlite** (`aiosqlite`): The local, lightning-fast relational database. It stores historical logs for the Query Node to aggregate, and also powers LangGraph's conversational memory persistence.
-- **Python Telegram Bot** (`python-telegram-bot`): Fully asynchronous framework connecting the LangGraph application to the end-user via Telegram. Provides the webhooks, polling loops, and chat interfaces.
+- **SQLite & Aiosqlite** (`aiosqlite`): The local, lightning-fast relational database. It stores historical logs for the Query Node to aggregate, and also powers LangGraph's conversational memory persistence via `AsyncSqliteSaver`.
+- **Python Telegram Bot** (`python-telegram-bot`): Fully asynchronous framework connecting the LangGraph application to the end-user via Telegram. Provides the webhooks, polling loops, voice note downloads, and chat interfaces.
 - **Notion Client** (`notion-client`): Asynchronous SDK used to append Notion database blocks and text. 
 - **APScheduler** (`APScheduler`): An in-process python job scheduler. Runs the proactive chron jobs (morning check-ins and weekly digests) without needing external services like Celery or Redis.
 - **Ruff & UV**: UV manages packages synchronously and insanely fast, while Ruff replaces flake8/black/isort in a single Rust-compiled binary.
@@ -79,7 +79,8 @@ Strict validation schemas.
 - **`notion_store.py`**: Initializes the `AsyncClient`. Maps our custom Pydantic models into the extremely specific mapping arrays required by Notion's rich-text block API natively.
 
 #### `telegram/`
-- **`bot.py`**: The main entry point bridging Telegram to LangGraph. It uses `python-telegram-bot` to constantly poll the Telegram API for new messages (`Update` objects). 
+- **`bot.py`**: The main entry point bridging Telegram to LangGraph. It runs natively using `uvicorn` and `FastAPI` to expose a webhook server (`/webhook`) designed specifically for serverless Cloud Run environments.
+  - **Voice Notes**: Detects audio files, bounds their size (max 25MB), and feeds them asynchronously into OpenAI Whisper (`chat.completions`) inside a `Tenacity` retry block.
   - **Authentication**: When a message arrives, it immediately checks if the `user_id` is in the allowed whitelist. If not, it drops the message silently.
   - **Execution Bridge**: Valid messages are mapped into a `raw_input` string and fed into `app.ainvoke(state, config={"configurable": {"thread_id": user_id}})`. This executes the LangGraph state machine.
   - **Response Routing**: Once LangGraph yields a final state, `bot.py` extracts the `response_message` string and uses `context.bot.send_message` to push it back to the user's Telegram chat.
@@ -102,3 +103,28 @@ Strict validation schemas.
 Currently, the primary external integrations are **SQLite** and **Notion APIs** operating directly within standard custom python wrappers as LangGraph Nodes (`query.py` and `persister.py`). 
 
 There are currently no external MCP servers instantiated in the repository. The LangGraph generic agent architecture allows for instantaneous plugging of MCP servers by dropping them in as `ToolNodes` on the `graph.py` pipeline if required in the future, but the current production flow relies natively on direct SDK connections.
+
+---
+
+## 6. Serverless Deployment (Google Cloud Run)
+
+The application is heavily optimized for a Serverless deployment using Google Cloud Run, maximizing up-time while keeping the actual cost of idle computing at exactly $0.00.
+
+### Serverless Execution Flow
+1. **Sleep**: When no updates are arriving, Cloud Run terminates container execution.
+2. **Ping**: When a message or voice note is sent to the Telegram Bot, Telegram dispatches an HTTP POST directly to the `/webhook` endpoint hosted by `FastAPI`.
+3. **Synchronous Unspooling**: The FastAPI endpoint reads the Telegram update and executes `application.process_update(update)` *synchronously*. This is critical, as it forces Cloud Run to allocate full CPU power during the heavy STT parsing and LLM API calls.
+4. **Resolution**: Once the Notion payload is synced, the server responds to Telegram with a `200 OK` and cleanly spins back down.
+
+### Cloud Build & Startup Hooks
+When pushing directly from the source via `gcloud run deploy`:
+- `Dockerfile` utilizes `--mount=type=cache,target=/root/.cache/uv` allowing lightning-fast consecutive cloud builds.
+- The `webhook` CMD targets the FastAPI router, skipping the deprecated polling mode.
+- Before `uvicorn` opens port binding, it executes an instantaneous `alembic upgrade head` check to ensure the attached persistent `/data/sqlite.db` volume's schemas map accurately.
+
+### Mandatory Environment Keys
+For the webhook deployment to operate successfully against external domains without exposing tokens, the following configurations must be injected via `--set-env-vars`:
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- `OPENAI_API_KEY`, `NOTION_API_KEY`, `ENABLE_NOTION`
+- Target Notion Database IDs (`_PAGE_ID` variations)
+- Volume Mapping specifying the `/data` directory mappings required for the sqlite store and logging endpoints securely bypassing the Cloud Run read-only filesystem limits.
