@@ -96,3 +96,49 @@ async def save_if_not_duplicate(user_id: str, record: dict[str, Any]) -> bool:
         return False  # already have this day
     await save_records(user_id, [record])
     return True
+
+async def get_current_streak(user_id: str) -> int:
+    """Calculate the current consecutive daily logging streak (any record type)."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT DISTINCT date FROM records WHERE user_id=? ORDER BY date DESC",
+        (user_id,)
+    )
+    rows = await cursor.fetchall()
+    if not rows:
+        return 0
+        
+    dates = [row["date"] for row in rows]
+    
+    target_tz = ZoneInfo(settings.timezone)
+    today = dt.datetime.now(target_tz).date()
+    
+    streak = 0
+    current_check_date = today
+    
+    # 1. The streak can start either if they logged today or yesterday.
+    if dates and dates[0] == current_check_date.isoformat():
+        streak += 1
+        current_check_date -= dt.timedelta(days=1)
+        dates.pop(0)
+    elif dates and dates[0] == (current_check_date - dt.timedelta(days=1)).isoformat():
+        # Active streak but hasn't logged today yet, streak continues
+        streak += 1
+        current_check_date -= dt.timedelta(days=2)
+        dates.pop(0)
+    else:
+        # Last log was older than yesterday; streak is broken
+        return 0 
+        
+    # 2. Count sequentially backwards
+    for d_str in dates:
+        if d_str == current_check_date.isoformat():
+            streak += 1
+            current_check_date -= dt.timedelta(days=1)
+        else:
+            break
+            
+    return streak

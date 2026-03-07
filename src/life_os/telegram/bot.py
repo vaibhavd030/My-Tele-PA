@@ -54,6 +54,22 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if update.message:
         await update.message.reply_text("Hello! I am your Life OS agent. How can I help you today?")
 
+async def streak_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+        
+    user_id = str(update.message.from_user.id) if update.message.from_user else "unknown"
+    if update.message.chat_id != settings.telegram_chat_id:
+        await update.message.reply_text("Unauthorized access.")
+        return
+
+    from life_os.integrations.sqlite_store import get_current_streak
+    streak = await get_current_streak(user_id)
+    if streak > 0:
+        await update.message.reply_text(f"🔥 You are on a {streak}-day logging streak! Keep it up!")
+    else:
+        await update.message.reply_text("You don't have an active streak right now. Log something today to start one! 🌱")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text:
@@ -308,6 +324,7 @@ def main() -> None:
 
     # ── Handlers ──
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("streak", streak_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
 

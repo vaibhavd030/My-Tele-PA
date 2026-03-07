@@ -20,9 +20,22 @@ class SQLQuery(BaseModel):
 
 
 SCHEMA_PROMPT = """
-Table: records (id, user_id, date, type, data JSON)
-Types: sleep, exercise, meditation, cleaning, sitting, group_meditation, habit, tasks, journal_note, mood, energy
-JSON fields vary by type. Generate a SQLite query.
+Table: records (id, user_id, date TEXT 'YYYY-MM-DD', type TEXT, data JSON, source TEXT)
+Types and their JSON fields:
+- sleep: duration_hours (float), bedtime_hour (int), wake_hour (int), quality (int 1-10)
+- exercise: exercise_type (str), duration_minutes (int), distance_km (float), intensity (int), body_parts (list)
+- meditation: duration_minutes (int), datetime_logged (ISO str)
+- cleaning: duration_minutes (int), datetime_logged (ISO str)
+- sitting: duration_minutes (int), took_from (str), datetime_logged (ISO str)
+- group_meditation: duration_minutes (int), place (str), datetime_logged (ISO str)
+- habit: category (str: lost_self_control|junk_food|outside_food|late_eating|screen_time|other), description (str)
+- mood: mood_score (int 1-10)
+- energy: energy_level (int 1-10)
+- tasks: task (str), priority (int 1-3)
+- journal_note: note (str)
+
+Use json_extract(data, '$.field') for JSON fields. Use SUM/AVG where appropriate.
+Today's date is: {today}
 """
 
 
