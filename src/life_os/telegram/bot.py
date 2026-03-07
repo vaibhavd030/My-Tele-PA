@@ -237,6 +237,31 @@ def create_fastapi_app(application: Application | None = None) -> FastAPI:
     return app
 
 
+def _run_migrations() -> None:
+    import alembic.command
+    import alembic.config
+    import sqlalchemy as sa
+    from sqlalchemy.engine import create_engine
+    from life_os.config.settings import settings
+    import os
+    
+    # 1) Connect directly to check if Alembic tracked the schema
+    engine = create_engine(f"sqlite:///{settings.db_path}")
+    insp = sa.inspect(engine)
+    has_records = insp.has_table("records")
+    has_alembic = insp.has_table("alembic_version")
+    
+    alembic_cfg = alembic.config.Config("alembic.ini")
+    
+    if has_records and not has_alembic:
+        # V1/V2 legacy database detected mapping to the volume!
+        # Stamp it as 'head' to prevent Alembic from trying to re-create `records`
+        alembic.command.stamp(alembic_cfg, "head")
+        log.info("legacy_db_detected_stamped_alembic_head")
+    else:
+        alembic.command.upgrade(alembic_cfg, "head")
+        log.info("schema_migrations_applied_successfully")
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["polling", "webhook"], default="polling")
@@ -244,10 +269,12 @@ def main() -> None:
 
     configure_logging()
 
-    # Initialize SQLite database
-    import asyncio
-
-    asyncio.run(init_db())
+    # Initialize SQLite database via Alembic strictly
+    try:
+        _run_migrations()
+    except Exception as e:
+        log.error("migration_failed", error=str(e))
+        raise
 
     log.info("starting_bot", mode=args.mode)
 
@@ -294,17 +321,7 @@ def main() -> None:
         
         app = create_fastapi_app(application)
 
-        def _run_migrations() -> None:
-            import alembic.command
-            import alembic.config
-            
-            alembic_cfg = alembic.config.Config("alembic.ini")
-            alembic.command.upgrade(alembic_cfg, "head")
-            log.info("schema_migrations_applied_successfully")
-
         async def run_fastapi() -> None:
-            # 1. Block application start until schemas map cleanly to the provisioned DB volume
-            await asyncio.to_thread(_run_migrations)
             
             # 2. Wire webhook integration dynamically
             webhook_url = settings.webhook_url
