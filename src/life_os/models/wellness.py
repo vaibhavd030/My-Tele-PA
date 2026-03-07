@@ -130,33 +130,65 @@ class ExerciseEntry(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
-class MeditationType(enum.StrEnum):
-    MEDITATION = "meditation"  # General / unspecified sitting meditation
-    CLEANING = "cleaning"  # Heartfulness cleaning practice
-    SITTING = "sitting"  # Heartfulness sitting / transmission practice
-    GROUP_MEDITATION = "group_meditation"  # Satsang / group sitting
+class PracticeBase(BaseModel):
+    """Base for all spiritual practices."""
+    date: dt_date
+    datetime_logged: dt_datetime | None = Field(
+        default=None,
+        description=(
+            "The datetime when the practice was done. "
+            "If user specifies a time, combine with date. "
+            "If not specified, leave null and system will auto-fill."
+        ),
+    )
+    duration_minutes: Annotated[int, Field(ge=1, le=300)] | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class MeditationEntry(PracticeBase):
+    """General / unspecified meditation session."""
+    pass
+
+
+class CleaningEntry(PracticeBase):
+    """Heartfulness cleaning practice session."""
+    pass
+
+
+class SittingEntry(PracticeBase):
+    """Heartfulness sitting / transmission practice."""
+    took_from: str | None = Field(
+        default=None,
+        description="Name of the trainer/preceptor who gave the sitting"
+    )
+
+
+class GroupMeditationEntry(PracticeBase):
+    """Satsang / group meditation session."""
+    place: str | None = Field(
+        default=None,
+        description="Location/venue of the group meditation"
+    )
+
+
+class HabitCategory(enum.StrEnum):
+    SELF_CONTROL = "lost_self_control"
+    JUNK_FOOD = "junk_food"
+    OUTSIDE_FOOD = "outside_food"
+    LATE_EATING = "late_eating"
+    SCREEN_TIME = "screen_time"
     OTHER = "other"
 
 
-class WellnessEntry(BaseModel):
-    # Daily wellness log: meditation, mood, energy.
-
+class HabitEntry(BaseModel):
+    """A habit event to track (typically negative habits to be mindful of)."""
     date: dt_date
-    time_of_day: str | None = Field(
-        default=None,
-        description="Time of the session, e.g. '07:30' or '7am', if the user specifies it",
+    datetime_logged: dt_datetime | None = None
+    category: HabitCategory
+    description: str = Field(
+        description='What happened, e.g. ate ice cream, ordered Deliveroo, watched Netflix till 2am'
     )
-    meditation_minutes: Annotated[int, Field(ge=0)] | None = None
-    meditation_type: MeditationType | None = Field(
-        default=None,
-        description=(
-            "Type of practice: 'meditation' (general), 'cleaning', 'sitting', "
-            "'group_meditation' (satsang/group sitting), or 'other'"
-        ),
-    )
-    mood_score: Annotated[int, Field(ge=1, le=10)] | None = None
-    energy_level: Annotated[int, Field(ge=1, le=10)] | None = None
-    notes: str | None = Field(default=None, max_length=1000)
+    notes: str | None = None
 
 
 class ExtractedData(BaseModel):
@@ -167,9 +199,13 @@ class ExtractedData(BaseModel):
 
     sleep: SleepEntry | None = None
     exercise: list[ExerciseEntry] = Field(default_factory=list)
-    wellness: WellnessEntry | None = None
+    meditation: list[MeditationEntry] = Field(default_factory=list)
+    cleaning: list[CleaningEntry] = Field(default_factory=list)
+    sitting: list[SittingEntry] = Field(default_factory=list)
+    group_meditation: list[GroupMeditationEntry] = Field(default_factory=list)
+    habits: list[HabitEntry] = Field(default_factory=list)
     tasks: list[TaskItem] = Field(default_factory=list)
     reading_links: list[ReadingLink] = Field(default_factory=list)
-    reminder_text: str | None = None
-    reminder_datetime: dt_datetime | None = None
     journal_note: str | None = None
+    mood_score: Annotated[int, Field(ge=1, le=10)] | None = None
+    energy_level: Annotated[int, Field(ge=1, le=10)] | None = None

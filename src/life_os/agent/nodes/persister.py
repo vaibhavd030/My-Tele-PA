@@ -14,11 +14,16 @@ from life_os.integrations.sqlite_store import save_records
 
 log = structlog.get_logger(__name__)
 
-# Emoji icons per entity type for a friendly confirmation message
 _ICONS: dict[str, str] = {
     "sleep": "🛏️ Sleep",
     "exercise": "🏃 Exercise",
-    "wellness": "🧘 Wellness",
+    "meditation": "🧘 Meditation",
+    "cleaning": "🧹 Cleaning",
+    "sitting": "🪷 Sitting",
+    "group_meditation": "🕊️ Group Meditation",
+    "habits": "📊 Habit Tracker",
+    "mood": "😊 Mood",
+    "energy": "⚡ Energy",
     "tasks": "✅ Tasks",
     "reading_links": "🔖 Reading",
     "journal_note": "📝 Journal",
@@ -61,20 +66,42 @@ def _summarise_exercise(items: list[Any]) -> str:
     return " | ".join(summaries)
 
 
-def _summarise_wellness(obj: Any) -> str:
-    parts = []
-    if obj.get("time_of_day"):
-        parts.append(f"@ {obj.get('time_of_day')}")
-    if obj.get("meditation_minutes"):
-        med_str = f"{obj.get('meditation_minutes')} mins"
-        if obj.get("meditation_type"):
-            med_str += f" ({str(obj.get('meditation_type')).replace('_', ' ').title()})"
-        parts.append(med_str)
-    if obj.get("mood_score"):
-        parts.append(f"Mood: {obj.get('mood_score')}/10")
-    if obj.get("energy_level"):
-        parts.append(f"Energy: {obj.get('energy_level')}/10")
-    return ", ".join(parts)
+def _summarise_practice(name: str, items: list[Any]) -> str:
+    from datetime import datetime
+    summaries = []
+    for p in items:
+        parts = []
+        if p.get("datetime_logged"):
+            try:
+                dt = datetime.fromisoformat(p["datetime_logged"])
+                parts.append(f"@{dt.strftime('%H:%M')}")
+            except Exception:
+                pass
+        if p.get("duration_minutes"):
+            parts.append(f"{p['duration_minutes']} mins")
+        if p.get("took_from"):
+            parts.append(f"From: {p['took_from']}")
+        if p.get("place"):
+            parts.append(f"At: {p['place']}")
+        summaries.append(" | ".join(parts) if parts else "Logged")
+    return ", ".join(summaries)
+
+
+def _summarise_habits(items: list[Any]) -> str:
+    from datetime import datetime
+    summaries = []
+    for h in items:
+        dt_str = ""
+        if h.get("datetime_logged"):
+            try:
+                dt = datetime.fromisoformat(h["datetime_logged"])
+                dt_str = f"@{dt.strftime('%H:%M')} "
+            except Exception:
+                pass
+        cat = str(h.get("category", "other")).replace("_", " ").title()
+        desc = h.get("description", "")
+        summaries.append(f"{dt_str}{cat}: {desc}")
+    return " | ".join(summaries)
 
 
 async def run(state: AgentState) -> dict[str, Any]:
@@ -96,10 +123,22 @@ async def run(state: AgentState) -> dict[str, Any]:
     records_to_save = []
     logged_sections: list[str] = []
 
+    # ── Auto-fill missing datetime_logged ──────────────────────────
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from life_os.config.settings import settings
+    
+    tz = ZoneInfo(settings.timezone)
+    now = datetime.now(tz)
+    for practice_key in ['meditation', 'cleaning', 'sitting', 'group_meditation', 'habits']:
+        items = entities.get(practice_key, [])
+        for item in items:
+            if isinstance(item, dict) and item.get('datetime_logged') is None:
+                item['datetime_logged'] = now.isoformat()
+
     # ── Process each entity type ──────────────────────────────────────────
     sleep = entities.get("sleep")
     exercise = entities.get("exercise") or []
-    wellness = entities.get("wellness")
     journal_note = entities.get("journal_note")
     notion_tasks = entities.get("tasks") or []
     notion_links = entities.get("reading_links") or []
@@ -114,11 +153,30 @@ async def run(state: AgentState) -> dict[str, Any]:
                 records_to_save.append({**ex, "type": "exercise"})
         logged_sections.append(f"{_ICONS['exercise']}: {_summarise_exercise(exercise)}")
 
-    if wellness and isinstance(wellness, dict):
-        records_to_save.append({**wellness, "type": "wellness"})
-        summary = _summarise_wellness(wellness)
-        section = f"{_ICONS['wellness']}: {summary}" if summary else _ICONS["wellness"]
-        logged_sections.append(section)
+    for p_key in ['meditation', 'cleaning', 'sitting', 'group_meditation']:
+        p_items = entities.get(p_key) or []
+        for p in p_items:
+            if isinstance(p, dict):
+                records_to_save.append({**p, "type": p_key})
+        if p_items:
+            logged_sections.append(f"{_ICONS[p_key]}: {_summarise_practice(p_key, p_items)}")
+
+    habits = entities.get("habits") or []
+    for h in habits:
+        if isinstance(h, dict):
+            records_to_save.append({**h, "type": "habits"})
+    if habits:
+        logged_sections.append(f"{_ICONS['habits']}: {_summarise_habits(habits)}")
+
+    mood_score = entities.get("mood_score")
+    if mood_score:
+        records_to_save.append({"type": "mood", "mood_score": mood_score})
+        logged_sections.append(f"{_ICONS['mood']}: {mood_score}/10")
+        
+    energy_level = entities.get("energy_level")
+    if energy_level:
+        records_to_save.append({"type": "energy", "energy_level": energy_level})
+        logged_sections.append(f"{_ICONS['energy']}: {energy_level}/10")
 
     if journal_note:
         records_to_save.append({"type": "journal_note", "note": journal_note})
@@ -145,32 +203,34 @@ async def run(state: AgentState) -> dict[str, Any]:
     response_parts = ["I have logged the following:\n" + "\n".join(logged_sections)]
 
     # ── Notion sync — reconstruct Pydantic models from plain dicts ────────
-    if sleep or exercise or wellness or journal_note or notion_tasks or notion_links:
+    if len(records_to_save) > 0:
         from life_os.models.tasks import ReadingLink, TaskItem
-        from life_os.models.wellness import ExerciseEntry, SleepEntry, WellnessEntry
+        from life_os.models.wellness import (
+            ExerciseEntry, SleepEntry, MeditationEntry,
+            CleaningEntry, SittingEntry, GroupMeditationEntry, HabitEntry
+        )
 
-        notion_sleep = SleepEntry(**sleep) if sleep and isinstance(sleep, dict) else None
-        notion_exercise = (
-            [ExerciseEntry(**ex) for ex in exercise if isinstance(ex, dict)] if exercise else None
-        )
-        notion_wellness = (
-            WellnessEntry(**wellness) if wellness and isinstance(wellness, dict) else None
-        )
-        notion_task_models = (
-            [TaskItem(**t) for t in notion_tasks if isinstance(t, dict)] if notion_tasks else None
-        )
-        notion_link_models = (
-            [ReadingLink(**lnk) for lnk in notion_links if isinstance(lnk, dict)]
-            if notion_links
-            else None
-        )
+        n_sleep = SleepEntry(**sleep) if sleep and isinstance(sleep, dict) else None
+        n_ex = [ExerciseEntry(**x) for x in exercise if isinstance(x, dict)] or None
+        n_med = [MeditationEntry(**i) for i in entities.get("meditation", []) if isinstance(i, dict)] or None
+        n_clean = [CleaningEntry(**i) for i in entities.get("cleaning", []) if isinstance(i, dict)] or None
+        n_sit = [SittingEntry(**i) for i in entities.get("sitting", []) if isinstance(i, dict)] or None
+        n_group = [GroupMeditationEntry(**i) for i in entities.get("group_meditation", []) if isinstance(i, dict)] or None
+        n_habits = [HabitEntry(**i) for i in entities.get("habits", []) if isinstance(i, dict)] or None
+        
+        n_tasks = [TaskItem(**t) for t in notion_tasks if isinstance(t, dict)] or None
+        n_links = [ReadingLink(**lnk) for lnk in notion_links if isinstance(lnk, dict)] or None
 
         failed_syncs = await append_notion_blocks(
-            tasks=notion_task_models,
-            links=notion_link_models,
-            sleep=notion_sleep,
-            exercise=notion_exercise,
-            wellness=notion_wellness,
+            tasks=n_tasks,
+            links=n_links,
+            sleep=n_sleep,
+            exercise=n_ex,
+            meditation=n_med,
+            cleaning=n_clean,
+            sitting=n_sit,
+            group_meditation=n_group,
+            habits=n_habits,
             journal_note=journal_note,
         )
         if not failed_syncs:

@@ -60,14 +60,17 @@ async def run(state: AgentState) -> dict[str, Any]:
         if not sql_query.strip().upper().startswith("SELECT"):
             raise ValueError("Only SELECT queries are allowed.")
             
+        await db.execute('BEGIN TRANSACTION')
         cursor = await db.execute(sql_query)
         rows = await cursor.fetchall()
+        await db.execute('ROLLBACK')  # read-only, never commit
         
         results = []
         for r in rows:
             results.append(dict(r))
             
     except Exception as exc:
+        await db.execute('ROLLBACK')
         log.error("failed_to_execute_sql", error=str(exc), query=sql_query)
         return {"response_message": "Sorry, I ran into an issue retrieving the data."}
 

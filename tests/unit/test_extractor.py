@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from life_os.agent.nodes.extractor import run
-from life_os.models.wellness import ExtractedData, SleepEntry, SleepQuality
+from life_os.models.wellness import ExtractedData, SleepEntry
 
 
 @pytest.mark.asyncio
@@ -29,11 +29,11 @@ async def test_extracts_sleep_data(base_state: dict) -> None:
             bedtime_minute=0,
             wake_hour=6,
             wake_minute=30,
-            quality=SleepQuality.EXCELLENT,
+            quality=10,
         )
     )
 
-    with patch("life_os.agent.nodes.extractor._call_llm", AsyncMock(return_value=mock_result)):
+    with patch("life_os.agent.nodes.extractor._call_llm", AsyncMock(return_value=(mock_result, 100, 0.001))):
         result = await run(base_state)
 
     sleep = result["entities"]["sleep"]
@@ -41,7 +41,7 @@ async def test_extracts_sleep_data(base_state: dict) -> None:
     # Entities are stored as plain dicts for msgpack compatibility
     assert isinstance(sleep, dict)
     assert sleep["duration_hours"] == 7.5
-    assert sleep["quality"] == SleepQuality.EXCELLENT
+    assert sleep["quality"] == 10
 
 
 @pytest.mark.asyncio
@@ -62,7 +62,7 @@ async def test_merges_with_existing_entities(base_state: dict) -> None:
 
     mock_result = ExtractedData()  # No sleep in new message
 
-    with patch("life_os.agent.nodes.extractor._call_llm", AsyncMock(return_value=mock_result)):
+    with patch("life_os.agent.nodes.extractor._call_llm", AsyncMock(return_value=(mock_result, 50, 0.0005))):
         result = await run(base_state)
 
     # Sleep from turn 1 must be preserved

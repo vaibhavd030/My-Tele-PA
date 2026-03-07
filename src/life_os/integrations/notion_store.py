@@ -13,7 +13,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from life_os.config.settings import settings
 from life_os.models.tasks import ReadingLink, TaskItem
-from life_os.models.wellness import ExerciseEntry, SleepEntry, WellnessEntry
+from life_os.models.wellness import (
+    ExerciseEntry, SleepEntry, MeditationEntry, CleaningEntry, 
+    SittingEntry, GroupMeditationEntry, HabitEntry
+)
 
 log = structlog.get_logger(__name__)
 
@@ -26,6 +29,13 @@ def _get_now_formatted() -> str:
 
 def _format_date_only(d: date) -> str:
     return f"{d.day} {d.strftime('%B %Y')}"
+
+def _bullet_block(text: str) -> dict[str, Any]:
+    return {
+        "object": "block",
+        "type": "bulleted_list_item",
+        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": text}}]},
+    }
 
 
 def _get_notion() -> AsyncClient:
@@ -127,11 +137,7 @@ async def _build_sleep(sleep: SleepEntry) -> list[dict[str, Any]]:
         text += f" | Quality: {sleep.quality}"
     if sleep.notes:
         text += f" | Notes: {sleep.notes}"
-    return [{
-        "object": "block",
-        "type": "bulleted_list_item",
-        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": text}}]},
-    }]
+    return [_bullet_block(text)]
 
 async def _build_exercise(exercise: list[ExerciseEntry]) -> list[dict[str, Any]]:
     ex_blocks = []
@@ -150,32 +156,73 @@ async def _build_exercise(exercise: list[ExerciseEntry]) -> list[dict[str, Any]]
             text += f" | Body: {', '.join(bparts_str)}"
         if ex.notes:
             text += f" | Notes: {ex.notes}"
-        ex_blocks.append({
-            "object": "block",
-            "type": "bulleted_list_item",
-            "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": text}}]},
-        })
+        ex_blocks.append(_bullet_block(text))
     return ex_blocks
 
-async def _build_wellness(wellness: WellnessEntry) -> list[dict[str, Any]]:
-    text = f"🧘 Date: {_format_date_only(wellness.date)}"
-    if getattr(wellness, "time_of_day", None):
-        text += f" @ {wellness.time_of_day}"
-    if wellness.meditation_minutes:
-        text += f" | Meditation: {wellness.meditation_minutes} mins"
-    if wellness.meditation_type:
-        text += f" ({wellness.meditation_type.replace('_', ' ').title()})"
-    if wellness.mood_score:
-        text += f" | Mood: {wellness.mood_score}/10"
-    if wellness.energy_level:
-        text += f" | Energy: {wellness.energy_level}/10"
-    if wellness.notes:
-        text += f" | Notes: {wellness.notes}"
-    return [{
-        "object": "block",
-        "type": "bulleted_list_item",
-        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": text}}]},
-    }]
+
+async def _build_meditation(items: list[MeditationEntry]) -> list[dict]:
+    blocks = []
+    for s in items:
+        dt_str = s.datetime_logged.strftime('%d %B %Y %I:%M%p') if s.datetime_logged else _format_date_only(s.date)
+        text = f'🧘 {dt_str} | {s.duration_minutes} mins'
+        if s.notes:
+            text += f' | {s.notes}'
+        blocks.append(_bullet_block(text))
+    return blocks
+
+async def _build_cleaning(items: list[CleaningEntry]) -> list[dict]:
+    blocks = []
+    for s in items:
+        dt_str = s.datetime_logged.strftime('%d %B %Y %I:%M%p') if s.datetime_logged else _format_date_only(s.date)
+        text = f'🧹 {dt_str} | {s.duration_minutes} mins'
+        if s.notes:
+            text += f' | {s.notes}'
+        blocks.append(_bullet_block(text))
+    return blocks
+
+async def _build_sitting(items: list[SittingEntry]) -> list[dict]:
+    blocks = []
+    for s in items:
+        dt_str = s.datetime_logged.strftime('%d %B %Y %I:%M%p') if s.datetime_logged else _format_date_only(s.date)
+        text = f'🪷 {dt_str} | {s.duration_minutes} mins'
+        if s.took_from:
+            text += f' | From: {s.took_from}'
+        if s.notes:
+            text += f' | {s.notes}'
+        blocks.append(_bullet_block(text))
+    return blocks
+
+async def _build_group_meditation(items: list[GroupMeditationEntry]) -> list[dict]:
+    blocks = []
+    for s in items:
+        dt_str = s.datetime_logged.strftime('%d %B %Y %I:%M%p') if s.datetime_logged else _format_date_only(s.date)
+        text = f'🕊️ {dt_str} | {s.duration_minutes} mins'
+        if s.place:
+            text += f' | At: {s.place}'
+        if s.notes:
+            text += f' | {s.notes}'
+        blocks.append(_bullet_block(text))
+    return blocks
+
+_HABIT_ICONS = {
+    "lost_self_control": "🔴",
+    "junk_food": "🍔",
+    "outside_food": "🛵",
+    "late_eating": "🌙",
+    "screen_time": "📺",
+    "other": "⚠️",
+}
+
+async def _build_habits(items: list[HabitEntry]) -> list[dict]:
+    blocks = []
+    for h in items:
+        icon = _HABIT_ICONS.get(h.category, "⚠️")
+        dt_str = h.datetime_logged.strftime('%d %B %Y %I:%M%p') if h.datetime_logged else _format_date_only(h.date)
+        text = f'{icon} {dt_str} | {h.category.replace("_"," ").title()}: {h.description}'
+        if h.notes:
+            text += f' | {h.notes}'
+        blocks.append(_bullet_block(text))
+    return blocks
 
 async def _build_journal(journal_note: str) -> list[dict[str, Any]]:
     text = f"📝 {_get_now_formatted()}: {journal_note}"
@@ -191,7 +238,11 @@ _SYNC_CONFIGS = {
     "reading_links": SyncConfig(page_id_attr="notion_to_read_page_id", block_builder=_build_links),
     "sleep": SyncConfig(page_id_attr="notion_sleep_page_id", block_builder=_build_sleep),
     "exercise": SyncConfig(page_id_attr="notion_exercise_page_id", block_builder=_build_exercise),
-    "wellness": SyncConfig(page_id_attr="notion_wellness_page_id", block_builder=_build_wellness),
+    "meditation": SyncConfig(page_id_attr="notion_meditation_page_id", block_builder=_build_meditation),
+    "cleaning": SyncConfig(page_id_attr="notion_cleaning_page_id", block_builder=_build_cleaning),
+    "sitting": SyncConfig(page_id_attr="notion_sitting_page_id", block_builder=_build_sitting),
+    "group_meditation": SyncConfig(page_id_attr="notion_group_meditation_page_id", block_builder=_build_group_meditation),
+    "habits": SyncConfig(page_id_attr="notion_habit_page_id", block_builder=_build_habits),
     "journal_note": SyncConfig(page_id_attr="notion_journal_page_id", block_builder=_build_journal),
 }
 
@@ -201,7 +252,11 @@ async def append_notion_blocks(
     links: list[ReadingLink] | None = None,
     sleep: SleepEntry | None = None,
     exercise: list[ExerciseEntry] | None = None,
-    wellness: WellnessEntry | None = None,
+    meditation: list[MeditationEntry] | None = None,
+    cleaning: list[CleaningEntry] | None = None,
+    sitting: list[SittingEntry] | None = None,
+    group_meditation: list[GroupMeditationEntry] | None = None,
+    habits: list[HabitEntry] | None = None,
     journal_note: str | None = None,
 ) -> list[str]:
     """Append extracted tasks, links, and wellness data to Notion pages.
@@ -218,7 +273,11 @@ async def append_notion_blocks(
         "reading_links": links,
         "sleep": sleep,
         "exercise": exercise,
-        "wellness": wellness,
+        "meditation": meditation,
+        "cleaning": cleaning,
+        "sitting": sitting,
+        "group_meditation": group_meditation,
+        "habits": habits,
         "journal_note": journal_note,
     }
 

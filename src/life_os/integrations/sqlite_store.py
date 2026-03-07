@@ -22,9 +22,22 @@ log = structlog.get_logger(__name__)
 async def init_db() -> None:
     """Initialize the SQLite database with required tables."""
     os.makedirs(os.path.dirname(settings.db_path), exist_ok=True)
-    # Schema creation is now handled natively via Alembic migrations.
-    # Retrieve connection to ensure DB file is created/accessible.
+    # Schema creation is natively handled via Alembic, but we add a fallback
+    # creation here to ensure that unit test fixtures utilizing tmp_path SQLite databases
+    # can initialize properly without running an Alembic context.
     db = await get_db()
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            type TEXT NOT NULL,
+            data JSON NOT NULL
+        )
+        """
+    )
+    await db.commit()
     log.info("sqlite_db_initialized", path=settings.db_path)
 
 
@@ -51,17 +64,34 @@ async def save_records(user_id: str, records: list[dict[str, Any]]) -> None:
             date_str = date_str.isoformat()
         
         # We store records in a simple JSON blob table for flexibility
+        source_val = record.get("source", "manual")
         await db.execute(
             """
-            INSERT INTO records (user_id, date, type, data)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO records (user_id, date, type, data, source)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 user_id,
                 date_str,
                 record.get("type", "unknown"),
                 json.dumps(record, default=str),
+                source_val,
             ),
         )
     await db.commit()
     log.info("saved_records_to_sqlite", count=len(records), user_id=user_id)
+
+async def save_if_not_duplicate(user_id: str, record: dict[str, Any]) -> bool:
+    """Check if an Apple Health sleep entry for the same day already exists."""
+    db = await get_db()
+    cursor = await db.execute(
+        """
+        SELECT id FROM records 
+        WHERE user_id=? AND date=? AND type=? AND source='apple_health'
+        """,
+        (user_id, record["date"], "sleep"),
+    )
+    if await cursor.fetchone():
+        return False  # already have this day
+    await save_records(user_id, [record])
+    return True

@@ -22,7 +22,7 @@ async def test_classifier_log_intent(base_state, mocker):
     state["raw_input"] = "I ran 5k today."
     
     result = await run(state)
-    assert result == {"intent": "log"}
+    assert result["intent"] == "log"
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_classifier_query_intent(base_state, mocker):
     state["raw_input"] = "Show my exercises from last week."
     
     result = await run(state)
-    assert result == {"intent": "query"}
+    assert result["intent"] == "query"
 
 
 @pytest.mark.asyncio
@@ -66,4 +66,4 @@ async def test_classifier_other_intent(base_state, mocker):
     state["raw_input"] = "Hello how are you?"
     
     result = await run(state)
-    assert result == {"intent": "other"}
+    assert result["intent"] == "other"

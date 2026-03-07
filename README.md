@@ -8,8 +8,9 @@ The system leverages conversational memory to naturally clarify missing informat
 
 - **Voice Note Parsing**: Send audio or voice notes; the bot transcribes them instantly using OpenAI Whisper and merges the context smoothly into your journal.
 - **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities.
-- **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, Wellness, and Sleep straight to designated Notion databases seamlessly.
+- **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, specific Spiritual Practices (Sitting, Cleaning, Meditation), Habit Tracking (e.g. junk food, screen time), and Sleep straight to designated Notion databases seamlessly.
 - **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train? And duration?").
+- **Apple Health Integration SDK**: Built-in webhook for the 'Health Auto Export' iOS app to passively ingest and catalog Apple Health Sleep records into your Life OS.
 - **Conversational Chitchat fallback**: If your message is just casual talk, a dedicated LLM node warmly acknowledges it and asks if you'd like to log anything.
 - **Serverless Ready**: Fully compatible with Google Cloud Run using an optimized synchronous webhook design that scales to zero to save costs.
 - **Proactive Schedulers**: Automatically pings you at 8am daily for check-ins and Sunday at 7pm for a weekly digest.

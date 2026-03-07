@@ -15,8 +15,39 @@ from life_os.agent.graph import get_app
 from life_os.config.logging import configure_logging
 from life_os.config.settings import settings
 from life_os.integrations.sqlite_store import init_db
+from life_os.models.wellness import SleepEntry
 
 log = structlog.get_logger(__name__)
+
+
+def _infer_quality(qty_hours: float) -> int:
+    if qty_hours >= 7.5: return 10
+    if qty_hours >= 6.5: return 8
+    if qty_hours >= 5.5: return 6
+    if qty_hours >= 4.0: return 4
+    return 2
+
+def parse_apple_health_sleep(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Parse Health Auto Export JSON payload into SleepEntry-compatible dicts."""
+    from datetime import datetime
+    records = []
+    metrics = payload.get('data', {}).get('metrics', [])
+    for metric in metrics:
+        if metric.get('name') != 'sleep_analysis':
+            continue
+        for data_point in metric.get('data', []):
+            start = datetime.fromisoformat(data_point['date'])
+            qty = data_point.get('qty', 0)
+            records.append({
+                'type': 'sleep',
+                'date': start.date().isoformat(),
+                'source': 'apple_health',
+                'bedtime_hour': start.hour,
+                'bedtime_minute': start.minute,
+                'duration_hours': round(qty, 2),
+                'quality': _infer_quality(qty),
+            })
+    return records
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -163,6 +194,49 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await status_msg.edit_text(f"🎙️ Heard: \"{preview}\"\n\n{response}", parse_mode=ParseMode.HTML)
 
 
+from fastapi import FastAPI, Request, Response, HTTPException
+from life_os.integrations.sqlite_store import save_if_not_duplicate
+from life_os.integrations.notion_store import append_notion_blocks
+
+def create_fastapi_app(application: Application | None = None) -> FastAPI:
+    app = FastAPI(title="Life OS Agent Webhook")
+
+    @app.post("/webhook")
+    async def telegram_webhook(request: Request) -> Response:
+        if application is None:
+            return Response(status_code=500)
+        update = Update.de_json(data=await request.json(), bot=application.bot)
+        await application.process_update(update)
+        return Response(status_code=200)
+
+    @app.get("/health")
+    async def health_check() -> dict[str, str]:
+        return {"status": "ok"}
+        
+    @app.post("/api/apple-health/ingest")
+    async def ingest_apple_health(request: Request) -> dict[str, Any]:
+        """Receive Apple Health data from Health Auto Export app."""
+        auth = request.headers.get('Authorization')
+        if auth != f'Bearer {settings.apple_health_token}':
+            raise HTTPException(status_code=401)
+        payload = await request.json()
+        records = parse_apple_health_sleep(payload)
+        
+        saved_count = 0
+        if records:
+            for record in records:
+                user_id = str(settings.telegram_chat_id)
+                is_new = await save_if_not_duplicate(user_id, record)
+                if is_new:
+                    saved_count += 1
+                    sleep_entry = SleepEntry(**record)
+                    await append_notion_blocks(sleep=sleep_entry)
+                    
+        return {'status': 'ok', 'records_saved': saved_count}
+
+    return app
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["polling", "webhook"], default="polling")
@@ -217,19 +291,8 @@ def main() -> None:
         import os
 
         import uvicorn
-        from fastapi import FastAPI, Request, Response
         
-        app = FastAPI(title="Life OS Agent Webhook")
-        
-        @app.post("/webhook")
-        async def telegram_webhook(request: Request) -> Response:
-            update = Update.de_json(data=await request.json(), bot=application.bot)
-            await application.process_update(update)
-            return Response(status_code=200)
-
-        @app.get("/health")
-        async def health_check() -> dict[str, str]:
-            return {"status": "ok"}
+        app = create_fastapi_app(application)
 
         def _run_migrations() -> None:
             import alembic.command

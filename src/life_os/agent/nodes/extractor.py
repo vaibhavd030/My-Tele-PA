@@ -6,7 +6,7 @@ Handles partial data gracefully for the clarification loop downstream.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +77,6 @@ async def run(state: AgentState) -> AgentState:
     Returns:
         Updated state with entities and missing_fields populated.
     """
-    from datetime import date
     log.info("extracting_entities", user_id=state["user_id"])
 
     # ── Check clarification TTL ───────────────────────────────────────────
@@ -219,6 +218,21 @@ async def run(state: AgentState) -> AgentState:
         ):
             missing.append("wake up time")
 
+    for practice_type in ['meditation', 'cleaning', 'sitting', 'group_meditation']:
+        items = serialized.get(practice_type, [])
+        for item in items:
+            if isinstance(item, dict):
+                if not item.get('duration_minutes'):
+                    field = f'{practice_type.replace("_", " ")} duration'
+                    if field not in missing and field not in prior_missing:
+                        missing.append(field)
+                if practice_type == 'sitting' and not item.get('took_from'):
+                    if 'sitting trainer' not in missing and 'sitting trainer' not in prior_missing:
+                        missing.append('sitting trainer')
+                if practice_type == 'group_meditation' and not item.get('place'):
+                    if 'group meditation place' not in missing and 'group meditation place' not in prior_missing:
+                        missing.append('group meditation place')
+
     log.info("extraction_complete", fields_found=list(dumped.keys()), missing=missing)
 
     messages = [("user", state["raw_input"])]
@@ -239,6 +253,12 @@ async def run(state: AgentState) -> AgentState:
         else:
             other = [m for m in missing if m != "body part"]
             parts = []
+            if "sitting trainer" in other:
+                parts.append("Who did you take the sitting from?")
+                other.remove("sitting trainer")
+            if "group meditation place" in other:
+                parts.append("Where was the group meditation?")
+                other.remove("group meditation place")
             if other:
                 parts.append(f"Could you also specify the {', '.join(other)}?")
             if "body part" in missing:

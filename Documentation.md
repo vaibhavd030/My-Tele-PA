@@ -64,7 +64,7 @@ The core business logic. Separation of concerns is strictly enforced.
 
 #### `models/`
 Strict validation schemas.
-- **`wellness.py`**: Enums for `ExerciseType`, `SleepQuality`, `MuscleGroup`. Defines the `SleepEntry` and `ExerciseEntry` payloads, ensuring things like `intensity` stay between 1-10.
+- **`wellness.py`**: Enums for `ExerciseType`, `SleepQuality`, `MuscleGroup`, `HabitCategory`. Defines the granular Pydantic objects for parsing (`SleepEntry`, `ExerciseEntry`, `HabitEntry`, `CleaningEntry`, `SittingEntry`), ensuring variables like `intensity` stay rigidly between 1-10.
 - **`tasks.py`**: Defines `TaskItem` (for to-dos) and `ReadingLink` (cleans trailing slashes from URLs).
 - **`guardrails.py`**: Output structures for the classifiers (e.g., `IntentClassification` with valid enum literals).
 
@@ -83,6 +83,7 @@ Strict validation schemas.
   - **Voice Notes**: Detects audio files, bounds their size (max 25MB), and feeds them asynchronously into OpenAI Whisper (`chat.completions`) inside a `Tenacity` retry block.
   - **Authentication**: When a message arrives, it immediately checks if the `user_id` is in the allowed whitelist. If not, it drops the message silently.
   - **Execution Bridge**: Valid messages are mapped into a `raw_input` string and fed into `app.ainvoke(state, config={"configurable": {"thread_id": user_id}})`. This executes the LangGraph state machine.
+  - **Apple Health Ingest**: A strict `/api/apple-health/ingest` FastAPI endpoint authenticated via headers that natively tracks Apple Health JSON payloads exported passively from an iOS device.
   - **Response Routing**: Once LangGraph yields a final state, `bot.py` extracts the `response_message` string and uses `context.bot.send_message` to push it back to the user's Telegram chat.
 - **`jobs.py`**: The APScheduler instance housing `send_morning_checkin()` and `send_weekly_digest()`. These run on cron schedules and push standalone messages to the user entirely independent of graph execution.
 
@@ -126,5 +127,40 @@ When pushing directly from the source via `gcloud run deploy`:
 For the webhook deployment to operate successfully against external domains without exposing tokens, the following configurations must be injected via `--set-env-vars`:
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - `OPENAI_API_KEY`, `NOTION_API_KEY`, `ENABLE_NOTION`
+- `APPLE_HEALTH_TOKEN` (for passive biometric ingestions)
 - Target Notion Database IDs (`_PAGE_ID` variations)
 - Volume Mapping specifying the `/data` directory mappings required for the sqlite store and logging endpoints securely bypassing the Cloud Run read-only filesystem limits.
+
+### Direct Deployment Commands
+
+Use the following command to deploy directly from the source code. Cloud Build will automatically containerize the application using `uv`, mount it to a service named `life-os-agent`, and bind it to a publicly accessible URL.
+
+*Be extremely careful not to accidentally commit the explicit token strings into an unencrypted tracked Git manifest.*
+*Replace the [VALUES] with your actual API keys via your environment terminals.*
+
+```bash
+gcloud run deploy life-os-agent \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="TELEGRAM_BOT_TOKEN=[YOUR_BOT_TOKEN],\
+OPENAI_API_KEY=[YOUR_OPENAI_KEY],\
+TELEGRAM_CHAT_ID=[YOUR_CHAT_ID],\
+TIMEZONE=Asia/Kolkata,\
+LOG_FORMAT=json,\
+ENABLE_NOTION=true,\
+APPLE_HEALTH_TOKEN=[YOUR_API_TOKEN],\
+NOTION_API_KEY=[YOUR_NOTION_SECRET],\
+NOTION_EXERCISE_PAGE_ID=[ID],\
+NOTION_SLEEP_PAGE_ID=[ID],\
+NOTION_WELLNESS_PAGE_ID=[ID],\
+NOTION_HABIT_PAGE_ID=[ID],\
+NOTION_CLEANING_PAGE_ID=[ID],\
+NOTION_SITTING_PAGE_ID=[ID],\
+NOTION_GROUP_MEDITATION_PAGE_ID=[ID],\
+NOTION_JOURNAL_PAGE_ID=[ID],\
+NOTION_TO_DO_PAGE_ID=[ID],\
+NOTION_TO_READ_PAGE_ID=[ID]"
+```
+
+*Note: The `--allow-unauthenticated` flag is required so Telegram servers can reach the webhook URL passively.*
