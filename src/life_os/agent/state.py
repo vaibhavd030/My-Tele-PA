@@ -31,7 +31,7 @@ class AgentState(TypedDict, total=False):
     chat_history: Annotated[list[AnyMessage], add_messages]
     user_id: str
     raw_input: str
-    entities: Annotated[dict[str, Any], operator.ior]
+    entities: dict[str, Any]
     missing_fields: list[str]
     clarification_count: int
     intent: str | None

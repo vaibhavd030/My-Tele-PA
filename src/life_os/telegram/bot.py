@@ -223,9 +223,8 @@ def main() -> None:
         
         @app.post("/webhook")
         async def telegram_webhook(request: Request) -> Response:
-            await application.update_queue.put(
-                Update.de_json(data=await request.json(), bot=application.bot)
-            )
+            update = Update.de_json(data=await request.json(), bot=application.bot)
+            await application.process_update(update)
             return Response(status_code=200)
 
         @app.get("/health")

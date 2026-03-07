@@ -114,8 +114,9 @@ async def test_e2e_successful_extraction(mocker):
     
     print("FINAL STATE RESULT:", result)
     
-    assert "sleep" in result["entities"]
-    assert result["entities"]["sleep"]["duration_hours"] == 7.5
+    records = result.get("structured_records", [])
+    assert any(r.get("type") == "sleep" for r in records)
+    assert any(r.get("duration_hours") == 7.5 for r in records if r.get("type") == "sleep")
     assert result["response_message"] != ""
     assert not result.get("missing_fields")
 
