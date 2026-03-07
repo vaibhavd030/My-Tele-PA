@@ -1,5 +1,6 @@
 import json
 import pytest
+from types import SimpleNamespace
 
 from life_os.agent.nodes.query import run
 from life_os.integrations.sqlite_store import get_db, init_db, save_records
@@ -25,7 +26,23 @@ async def test_query_node_has_data(base_state, mocker):
                 completions=mocker.AsyncMock(
                     create=mocker.AsyncMock(
                         return_value=mocker.Mock(
-                            choices=[mocker.Mock(message=mocker.Mock(content="Here is your summary."))]
+                            choices=[mocker.Mock(message=mocker.Mock(content="Here is your summary."))],
+                            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=10)
+                        )
+                    )
+                )
+            )
+        )
+    )
+    mocker.patch(
+        "life_os.agent.nodes.query.get_instructor_client",
+        return_value=mocker.AsyncMock(
+            chat=mocker.AsyncMock(
+                completions=mocker.AsyncMock(
+                    create_with_completion=mocker.AsyncMock(
+                        return_value=(
+                            mocker.Mock(query="SELECT * FROM records", explanation="Test"),
+                            mocker.Mock(usage=SimpleNamespace(prompt_tokens=10, completion_tokens=10))
                         )
                     )
                 )
@@ -62,7 +79,23 @@ async def test_query_node_no_data(base_state, mocker):
                 completions=mocker.AsyncMock(
                     create=mocker.AsyncMock(
                         return_value=mocker.Mock(
-                            choices=[mocker.Mock(message=mocker.Mock(content="I don't have any data logged for you yet!"))]
+                            choices=[mocker.Mock(message=mocker.Mock(content="I don't have any data logged for you yet!"))],
+                            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=10)
+                        )
+                    )
+                )
+            )
+        )
+    )
+    mocker.patch(
+        "life_os.agent.nodes.query.get_instructor_client",
+        return_value=mocker.AsyncMock(
+            chat=mocker.AsyncMock(
+                completions=mocker.AsyncMock(
+                    create_with_completion=mocker.AsyncMock(
+                        return_value=(
+                            mocker.Mock(query="SELECT * FROM records", explanation="Test"),
+                            mocker.Mock(usage=SimpleNamespace(prompt_tokens=10, completion_tokens=10))
                         )
                     )
                 )

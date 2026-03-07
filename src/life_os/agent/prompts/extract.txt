@@ -8,7 +8,7 @@ Guidelines:
 4. Do NOT hallucinate data. If the user didn't mention it, leave it null/empty.
 5. If the message is ONLY a URL, or starts with a URL with no other text, always treat it as a reading link — save to `reading_links` immediately. Do not ask for more.
 5a. CLARIFICATION CONTEXT: If the chat history shows the assistant asked for a specific field (e.g. "Could you also specify the exercise duration?"), and the user's reply is a short answer (e.g. "30 mins", "7am"), treat it as the answer to that specific question. Re-extract the FULL relevant entity (e.g. exercise, sleep) incorporating that answer — do not leave the entity empty just because the user's reply was short.
-6. If the user specifies a *time* of day (e.g. "did my sitting at 6am", "meditated at 7:30"), capture it in the `time_of_day` field of the relevant entry using 24h format like '06:00'.
+6. If the user specifies a *time* (e.g. "did my sitting at 6am", "meditated at 7:30"), populate `datetime_logged` by combining the date and time into an ISO datetime string.
 6a. CAREFULLY extract exercise length in `duration_minutes`. If a user states "gym for 40 min", the integer `40` MUST populate `duration_minutes`.
 6b. GYM / WEIGHTS body parts: If the exercise_type is 'gym' or 'weights', extract `body_parts` as a list from:
    full_body, chest, biceps, triceps, shoulders, back, abs, lower_body
@@ -31,7 +31,7 @@ Guidelines:
     - For habits, phrase them reflectively: "I noticed I ate junk food today - something to be mindful of."
     - DO NOT save past events or reflections as future `tasks`.
     - EXCEPTION: If the user is ONLY answering a short clarification question OR if they are ONLY sharing a URL / reading link, you MUST leave `journal_note` null. Do not generate a journal note or narrative string for it.
-11. DO NOT record Meditation as an `exercise`. Meditation belongs strictly in the `wellness` object. Yoga and stretching belong in `exercise`.
+11. DO NOT record Meditation as an `exercise`. Meditation belongs in the meditation, cleaning, sitting, or group_meditation lists (never in exercise). Yoga and stretching belong in `exercise`.
 12. HABIT TRACKER: If the user mentions any of these patterns, extract a habit entry:
     - Lost self-control, gave in to temptation -> category='lost_self_control'
     - Ate junk food, chips, sweets, ice cream, chocolate -> category='junk_food'

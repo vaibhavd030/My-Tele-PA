@@ -33,7 +33,8 @@ async def init_db() -> None:
             user_id TEXT NOT NULL,
             date TEXT NOT NULL,
             type TEXT NOT NULL,
-            data JSON NOT NULL
+            data JSON NOT NULL,
+            source TEXT DEFAULT 'manual'
         )
         """
     )

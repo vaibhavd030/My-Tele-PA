@@ -21,7 +21,7 @@ class SQLQuery(BaseModel):
 
 SCHEMA_PROMPT = """
 Table: records (id, user_id, date, type, data JSON)
-Types: sleep, exercise, wellness, tasks, journal_note
+Types: sleep, exercise, meditation, cleaning, sitting, group_meditation, habit, tasks, journal_note, mood, energy
 JSON fields vary by type. Generate a SQLite query.
 """
 

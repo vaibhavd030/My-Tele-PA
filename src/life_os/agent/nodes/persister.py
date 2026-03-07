@@ -164,7 +164,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     habits = entities.get("habits") or []
     for h in habits:
         if isinstance(h, dict):
-            records_to_save.append({**h, "type": "habits"})
+            records_to_save.append({**h, "type": "habit"})
     if habits:
         logged_sections.append(f"{_ICONS['habits']}: {_summarise_habits(habits)}")
 

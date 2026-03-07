@@ -82,13 +82,12 @@ async def test_flow_meditation_and_habit(mocker):
     )
     
     assert state.get("abort") is False
-    assert "cleaning" in state.get("entities", {})
-    assert "habits" in state.get("entities", {})
+    records = state.get("structured_records", [])
+    cleaning_records = [r for r in records if r.get("type") == "cleaning"]
+    habits_records = [r for r in records if r.get("type") == "habit"]
     
-    cleaning_list = state["entities"]["cleaning"]
-    assert len(cleaning_list) == 1
-    assert cleaning_list[0]["duration_minutes"] == 30
+    assert len(cleaning_records) == 1
+    assert cleaning_records[0]["duration_minutes"] == 30
     
-    habits_list = state["entities"]["habits"]
-    assert len(habits_list) == 1
-    assert habits_list[0]["category"] == "junk_food"
+    assert len(habits_records) == 1
+    assert habits_records[0]["category"] == "junk_food"
