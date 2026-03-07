@@ -6,11 +6,12 @@ The system leverages conversational memory to naturally clarify missing informat
 
 ## Features
 
+- **Voice Note Parsing**: Send audio or voice notes; the bot transcribes them instantly using OpenAI Whisper and merges the context smoothly into your journal.
 - **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities.
 - **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, Wellness, and Sleep straight to designated Notion databases seamlessly.
 - **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train? And duration?").
 - **Conversational Chitchat fallback**: If your message is just casual talk, a dedicated LLM node warmly acknowledges it and asks if you'd like to log anything.
-- **Query Mode**: Summarizes your historical SQLite records to answer contextual questions (e.g., "How was my sleep this week?").
+- **Serverless Ready**: Fully compatible with Google Cloud Run using an optimized synchronous webhook design that scales to zero to save costs.
 - **Proactive Schedulers**: Automatically pings you at 8am daily for check-ins and Sunday at 7pm for a weekly digest.
 
 ---
@@ -21,7 +22,7 @@ The system runs as an asynchronous Telegram polling application paired with a ro
 - **LangGraph**: Orchestrates the state machine, routing between classification, entity extraction, missing-field logic loops, and database persistence.
 - **Instructor**: Enforces deterministic JSON schemas directly from the OpenAI `gpt-4o` models.
 - **Pydantic (v2)**: Validates typing and value thresholds across all extracted payloads.
-- **SQLite**: Provides high-speed, localized structured history and enables LangGraph's `MemorySaver` to checkpoint conversational state across dialog turns.
+- **SQLite**: Provides high-speed, localized structured history and enables LangGraph's `AsyncSqliteSaver` to maintain durable conversational checkpoints across serverless dialog turns.
 
 ### Agentic Graph Flow
 
@@ -163,7 +164,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
    ```
 
 5. **Initialize Database**
-   The SQLite database structure is automatically instantiated when you boot the bot for the first time. There is no need for manual migrations.
+   The SQLite database structure is automatically instantiated via `alembic` migrations when you boot the FastAPI bot for the first time. There is no need for manual schema setups.
    ```bash
    make dev
    ```
@@ -190,3 +191,11 @@ A test suite handles node executions, and a custom CI evaluation script tracks A
 make test
 make eval
 ```
+
+---
+
+## Serverless Deployment
+
+For 24/7 availability on a serverless architecture (meaning you pay $0.00 when the bot is not in use), the application can be seamlessly deployed to Google Cloud Run bounding to a Webhook instead of polling.
+
+For the required environment variables and `gcloud` deployment commands, see [deploy.md](deploy.md).
