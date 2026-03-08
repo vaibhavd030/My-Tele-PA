@@ -354,6 +354,7 @@ def main() -> None:
                 await server.serve()
                 await application.stop()
 
+        import asyncio
         asyncio.run(run_fastapi())
 
 
