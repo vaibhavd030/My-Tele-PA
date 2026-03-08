@@ -1,6 +1,7 @@
 """Query node to answer questions about historical data using Text2SQL."""
 
 import json
+from datetime import datetime
 from typing import Any
 
 import structlog
@@ -53,7 +54,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             model=settings.openai_model,
             response_model=SQLQuery,
             messages=[
-                {"role": "system", "content": SCHEMA_PROMPT},
+                {"role": "system", "content": SCHEMA_PROMPT.format(today=datetime.now().isoformat())},
                 {
                     "role": "user",
                     "content": f"User ID is '{user_id}'. Generate a query for: {query_text}",

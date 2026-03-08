@@ -11,7 +11,7 @@ import structlog
 os.environ["LOG_FORMAT"] = "console"
 os.environ["LOG_LEVEL"] = "WARNING"
 
-from life_os.agent.graph import app as agent_app
+from life_os.agent.graph import get_app
 from life_os.config.logging import configure_logging
 from life_os.integrations.sqlite_store import init_db, get_db
 
@@ -29,10 +29,8 @@ async def run_simulation():
     
     user_id = "sim_user_123"
     messages = [
-        "I slept for 5 hours and did a few mins of meditation",
-        "Just ran 5k in 30 minutes! Feeling great.",
-        "Add a note: Buy groceries tomorrow.",
-        "Based on my history, what is my average run duration?"
+        "I lost my self control today and yelled at my screen.",
+        "what happened when I lost my self control today?"
     ]
     
     print("[2] Running test messages through the Agent Graph:\n")
@@ -43,6 +41,7 @@ async def run_simulation():
         print("-" * 40)
         
         print(f"⚙️  Graph Execution Started...")
+        agent_app = await get_app()
         state = await agent_app.ainvoke(
             {
                 "user_id": user_id,

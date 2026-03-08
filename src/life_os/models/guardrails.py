@@ -12,10 +12,8 @@ class SafetyClassification(BaseModel):
 
     Attributes:
         is_injection: Whether this is a prompt injection attempt.
-        is_crisis: Flag for mental health crisis content.
         reasoning: Brief reasoning for the classification.
     """
 
     is_injection: bool
-    is_crisis: bool
     reasoning: str
