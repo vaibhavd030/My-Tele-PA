@@ -17,15 +17,24 @@ def mock_dbs(mocker):
     
     yield
 
+@pytest.fixture(autouse=True)
+async def _mock_memory_saver():
+    """Use an in-memory saver for tests to prevent asyncio SQLite locks hanging."""
+    import life_os.agent.graph as graph
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    graph._app = graph.builder.compile(checkpointer=memory)
+    yield
+    graph._app = None
+
 
 @pytest.mark.asyncio
 async def test_e2e_successful_extraction(mocker):
     import life_os.agent.graph as graph
-    graph._app = None
     
     await init_db()
     
-    app = await graph.get_app()
+    app = graph._app
     config = {"configurable": {"thread_id": "test_e2e_1"}}
     
     # Needs a functional LLM mockup matching instructor + standard OpenAI
@@ -110,11 +119,10 @@ async def test_e2e_successful_extraction(mocker):
 @pytest.mark.asyncio
 async def test_e2e_clarification_flow(mocker):
     import life_os.agent.graph as graph
-    graph._app = None
     
     await init_db()
     
-    app = await graph.get_app()
+    app = graph._app
     config = {"configurable": {"thread_id": "test_e2e_clarification"}}
     
     mocker.patch(

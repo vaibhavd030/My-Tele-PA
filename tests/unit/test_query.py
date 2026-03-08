@@ -56,10 +56,6 @@ async def test_query_node_has_data(base_state, mocker):
     
     assert "response_message" in result
     assert "Here is your summary." in result["response_message"]
-    
-    db = await get_db()
-    await db.close()
-
 
 @pytest.mark.asyncio
 async def test_query_node_no_data(base_state, mocker):
@@ -103,6 +99,3 @@ async def test_query_node_no_data(base_state, mocker):
     
     assert "response_message" in result
     assert "I don't have any data logged for you yet!" in result["response_message"]
-    
-    db = await get_db()
-    await db.close()

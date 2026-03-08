@@ -10,8 +10,11 @@ async def test_classifier_log_intent(base_state, mocker):
         return_value=mocker.AsyncMock(
             chat=mocker.AsyncMock(
                 completions=mocker.AsyncMock(
-                    create=mocker.AsyncMock(
-                        return_value=mocker.Mock(intent=mocker.Mock(value="log"))
+                    create_with_completion=mocker.AsyncMock(
+                        return_value=(
+                            mocker.Mock(intent=mocker.Mock(value="log")),
+                            mocker.Mock(usage=mocker.Mock(total_tokens=10, prompt_tokens=5, completion_tokens=5))
+                        )
                     )
                 )
             )
@@ -32,8 +35,11 @@ async def test_classifier_query_intent(base_state, mocker):
         return_value=mocker.AsyncMock(
             chat=mocker.AsyncMock(
                 completions=mocker.AsyncMock(
-                    create=mocker.AsyncMock(
-                        return_value=mocker.Mock(intent=mocker.Mock(value="query"))
+                    create_with_completion=mocker.AsyncMock(
+                        return_value=(
+                            mocker.Mock(intent=mocker.Mock(value="query")),
+                            mocker.Mock(usage=mocker.Mock(total_tokens=10, prompt_tokens=5, completion_tokens=5))
+                        )
                     )
                 )
             )
@@ -54,8 +60,11 @@ async def test_classifier_other_intent(base_state, mocker):
         return_value=mocker.AsyncMock(
             chat=mocker.AsyncMock(
                 completions=mocker.AsyncMock(
-                    create=mocker.AsyncMock(
-                        return_value=mocker.Mock(intent=mocker.Mock(value="other"))
+                    create_with_completion=mocker.AsyncMock(
+                        return_value=(
+                            mocker.Mock(intent=mocker.Mock(value="other")),
+                            mocker.Mock(usage=mocker.Mock(total_tokens=10, prompt_tokens=5, completion_tokens=5))
+                        )
                     )
                 )
             )

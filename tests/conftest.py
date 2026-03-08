@@ -16,7 +16,6 @@ def mock_bigquery_client(mocker):
     """Globally mock Google Cloud BigQuery client to prevent DefaultCredentialsError in tests."""
     
     # Mock Secrets to prevent NoneType client init
-    mocker.patch("life_os.config.settings.settings.openai_api_key", mocker.Mock(get_secret_value=lambda: "test-key"))
     mocker.patch("life_os.config.settings.settings.telegram_bot_token", mocker.Mock(get_secret_value=lambda: "test-bot"))
 
     # Crucial: LRU caches evaluated before tests run return None. Clear them!
