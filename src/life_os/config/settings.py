@@ -33,8 +33,12 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = Field(description="OpenAI API key")
     telegram_chat_id: int = Field(description="Your personal Telegram chat ID")
 
-    # ── SQLite (primary store — always enabled) ────────────────────────
-    db_path: str = Field(default="./data/life_os.db")
+    # ── Cloud Run / GCP (Core Data) ─────────────────────────────────────────
+    gcp_project_id: str = Field(default="my-tele-pa", description="Google Cloud Project ID")
+    bq_dataset_id: str = Field(default="life_os_prod", description="BigQuery Dataset ID")
+
+    # ── Local Checkpoints ──────────────────────────────────────────────────
+    db_path: str = Field(default="data/life_os.db")
 
     # ── Optional: Notion ──────────────────────────────────────────────────
     enable_notion: bool = Field(default=False)

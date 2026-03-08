@@ -2,7 +2,7 @@
 
 A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reading links, and journal entries using LangGraph, Instructor, and GPT-4o. 
 
-The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using Pydantic, stores data locally in SQLite, and conditionally syncs all organized data straight to Notion databases.
+The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using Pydantic, stores data centrally using Google BigQuery, and conditionally syncs all organized data straight to Notion databases.
 
 ## Features
 
@@ -23,7 +23,8 @@ The system runs as an asynchronous Telegram polling application paired with a ro
 - **LangGraph**: Orchestrates the state machine, routing between classification, entity extraction, missing-field logic loops, and database persistence.
 - **Instructor**: Enforces deterministic JSON schemas directly from the OpenAI `gpt-4o` models.
 - **Pydantic (v2)**: Validates typing and value thresholds across all extracted payloads.
-- **SQLite**: Provides high-speed, localized structured history and enables LangGraph's `AsyncSqliteSaver` to maintain durable conversational checkpoints across serverless dialog turns.
+- **Google BigQuery**: Provides high-speed serverless querying capability mapped naturally to Google Connected Sheets.
+- **SQLite**: Local Fallback handles `AsyncSqliteSaver` agent conversational checkpoints across serverless webhooks.
 
 ### Agentic Graph Flow
 
@@ -44,7 +45,7 @@ graph TD
         CheckMissing -- "Yes" --> GuardOutput
         CheckMissing -- "No" --> Persist[Persister Node]
         
-        Persist --> Storage[(SQLite DB)]
+        Persist --> Storage[(Google BigQuery)]
         Persist -.-> Notion[Notion API]
         
         Query --> Storage
@@ -119,13 +120,13 @@ The repository is modularly designed, separating the generic Agent pipeline from
 │       │   └── nodes/            # 
 │       │       ├── classifier.py # Routes to log, query, or chitchat
 │       │       ├── extractor.py  # Uses Instructor to pull Pydantic models from text; handles merge logic
-│       │       ├── persister.py  # Formats confirmation message & pushes to SQLite/Notion
-│       │       ├── query.py      # Pandas-based summarization of SQLite history
+│       │       ├── persister.py  # Formats confirmation message & pushes to BigQuery/Notion
+│       │       ├── query.py      # LLM powered native BigQuery SQL Summarization logic 
 │       │       └── guard.py      # Safety checks and state cleanups
 │       ├── config/               # Pydantic env settings and structlog config
 │       ├── evals/                # Custom evaluation datasets & F1 metric tracking
 │       ├── integrations/         # 
-│       │   ├── sqlite_store.py   # Async SQLite connection pool & queries
+│       │   ├── bigquery_store.py # Async BigQuery clients supporting Cloud Run bindings
 │       │   └── notion_store.py   # Tenacity-retried API calls to Notion databases
 │       ├── models/               # 
 │       │   ├── wellness.py       # Sleep, Exercise, and Wellness schemas
@@ -165,7 +166,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
    ```
 
 5. **Initialize Database**
-   The SQLite database structure is automatically instantiated via `alembic` migrations when you boot the FastAPI bot for the first time. There is no need for manual schema setups.
+   The BigQuery structured databases are automatically instantiated with required dataset schemas when you start up the FastAPI bot. Checkpointer states will gracefully save to `/data`. 
    ```bash
    make dev
    ```

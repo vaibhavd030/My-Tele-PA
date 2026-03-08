@@ -10,7 +10,7 @@ from __future__ import annotations
 import structlog
 
 from life_os.agent.state import AgentState
-from life_os.config.clients import get_instructor_client, calculate_cost
+from life_os.config.clients import calculate_cost, get_instructor_client
 from life_os.config.settings import settings
 from life_os.models.guardrails import SafetyClassification
 

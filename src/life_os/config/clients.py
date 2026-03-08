@@ -1,11 +1,10 @@
 """Centralised OpenAI client factory."""
 
 from functools import lru_cache
+from typing import Any
 
 import instructor
 from openai import AsyncOpenAI
-
-from typing import Any
 
 from life_os.config.settings import settings
 

@@ -1,19 +1,19 @@
 import pytest
 
 from life_os.agent.nodes.persister import run
-from life_os.integrations.sqlite_store import init_db
-
+from life_os.integrations.bigquery_store import init_db
 
 @pytest.fixture(autouse=True)
-def mock_dbs(mocker, tmp_path):
-    import life_os.integrations.sqlite_store as store
-    db_path = str(tmp_path / "persister_test.db")
-    mocker.patch("life_os.config.settings.settings.db_path", db_path)
+def mock_dbs(mocker):
+    # Bypass BigQuery tracking for tests natively
+    mocker.patch("life_os.integrations.bigquery_store.init_db", return_value=None)
+    mocker.patch("life_os.integrations.bigquery_store.save_records", return_value=None)
+    mocker.patch("life_os.config.settings.settings.gcp_project_id", "test-project")
+    mocker.patch("life_os.config.settings.settings.bq_dataset_id", "test_dataset")
     
     # We don't want to actually hit Notion during unit tests
     mocker.patch("life_os.integrations.notion_store.append_notion_blocks", return_value=[])
     yield
-    store._connection = None
 
 
 @pytest.mark.asyncio

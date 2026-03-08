@@ -8,13 +8,15 @@ import argparse
 from typing import Any
 
 import structlog
+from fastapi import FastAPI, HTTPException, Request, Response
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from life_os.agent.graph import get_app
 from life_os.config.logging import configure_logging
 from life_os.config.settings import settings
-from life_os.integrations.sqlite_store import init_db
+from life_os.integrations.bigquery_store import init_db, save_if_not_duplicate
+from life_os.integrations.notion_store import append_notion_blocks
 from life_os.models.wellness import SleepEntry
 
 log = structlog.get_logger(__name__)
@@ -63,7 +65,7 @@ async def streak_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Unauthorized access.")
         return
 
-    from life_os.integrations.sqlite_store import get_current_streak
+    from life_os.integrations.bigquery_store import get_current_streak
     streak = await get_current_streak(user_id)
     if streak > 0:
         await update.message.reply_text(f"🔥 You are on a {streak}-day logging streak! Keep it up!")
@@ -210,10 +212,6 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await status_msg.edit_text(f"🎙️ Heard: \"{preview}\"\n\n{response}", parse_mode=ParseMode.HTML)
 
 
-from fastapi import FastAPI, Request, Response, HTTPException
-from life_os.integrations.sqlite_store import save_if_not_duplicate
-from life_os.integrations.notion_store import append_notion_blocks
-
 def create_fastapi_app(application: Application | None = None) -> FastAPI:
     app = FastAPI(title="Life OS Agent Webhook")
 
@@ -253,31 +251,6 @@ def create_fastapi_app(application: Application | None = None) -> FastAPI:
     return app
 
 
-def _run_migrations() -> None:
-    import alembic.command
-    import alembic.config
-    import sqlalchemy as sa
-    from sqlalchemy.engine import create_engine
-    from life_os.config.settings import settings
-    import os
-    
-    # 1) Connect directly to check if Alembic tracked the schema
-    engine = create_engine(f"sqlite:///{settings.db_path}")
-    insp = sa.inspect(engine)
-    has_records = insp.has_table("records")
-    has_alembic = insp.has_table("alembic_version")
-    
-    alembic_cfg = alembic.config.Config("alembic.ini")
-    
-    if has_records and not has_alembic:
-        # V1/V2 legacy database detected mapping to the volume!
-        # Stamp it as 'head' to prevent Alembic from trying to re-create `records`
-        alembic.command.stamp(alembic_cfg, "head")
-        log.info("legacy_db_detected_stamped_alembic_head")
-    else:
-        alembic.command.upgrade(alembic_cfg, "head")
-        log.info("schema_migrations_applied_successfully")
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["polling", "webhook"], default="polling")
@@ -285,9 +258,11 @@ def main() -> None:
 
     configure_logging()
 
-    # Initialize SQLite database via Alembic strictly
+    # Initialize BigQuery Dataset and Tables if they don't exist
     try:
-        _run_migrations()
+        # Await the async init_db method
+        import asyncio
+        asyncio.run(init_db())
     except Exception as e:
         log.error("migration_failed", error=str(e))
         raise

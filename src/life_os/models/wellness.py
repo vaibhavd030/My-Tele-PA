@@ -18,8 +18,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from life_os.models.tasks import ReadingLink, TaskItem
 
 
-
-
 class SleepEntry(BaseModel):
     """A single night of sleep data.
 

@@ -1,34 +1,21 @@
 import pytest
 
-from life_os.integrations.sqlite_store import init_db
+from life_os.integrations.bigquery_store import init_db
 
 
 @pytest.fixture(autouse=True)
-def sqlite_test_db(mocker, tmp_path):
-    import life_os.integrations.sqlite_store as store
-    db_path = str(tmp_path / "e2e_test.db")
+def mock_dbs(mocker):
+    import life_os.integrations.bigquery_store as store
     
-    # For CI and pipeline tests rapidly populate schema omitting programmatic migrations  
-    import sqlite3
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("""
-            CREATE TABLE records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                date TEXT NOT NULL,
-                type TEXT NOT NULL,
-                data TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-    mocker.patch("life_os.config.settings.settings.db_path", db_path)
+    mocker.patch("life_os.integrations.bigquery_store.init_db", return_value=None)
+    mocker.patch("life_os.integrations.bigquery_store.save_records", return_value=None)
+    mocker.patch("life_os.config.settings.settings.gcp_project_id", "test-project")
+    mocker.patch("life_os.config.settings.settings.bq_dataset_id", "test_dataset")
+    
     # We do not hit Notion in E2E
     mocker.patch("life_os.integrations.notion_store.append_notion_blocks", return_value=[])
     
-    yield db_path
-    
-    store._connection = None
+    yield
 
 
 @pytest.mark.asyncio

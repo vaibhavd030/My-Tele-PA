@@ -14,8 +14,13 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from life_os.config.settings import settings
 from life_os.models.tasks import ReadingLink, TaskItem
 from life_os.models.wellness import (
-    ExerciseEntry, SleepEntry, MeditationEntry, CleaningEntry, 
-    SittingEntry, GroupMeditationEntry, HabitEntry
+    CleaningEntry,
+    ExerciseEntry,
+    GroupMeditationEntry,
+    HabitEntry,
+    MeditationEntry,
+    SittingEntry,
+    SleepEntry,
 )
 
 log = structlog.get_logger(__name__)

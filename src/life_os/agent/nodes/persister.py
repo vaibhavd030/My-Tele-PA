@@ -9,8 +9,8 @@ from typing import Any
 import structlog
 
 from life_os.agent.state import AgentState
+from life_os.integrations.bigquery_store import save_records
 from life_os.integrations.notion_store import append_notion_blocks
-from life_os.integrations.sqlite_store import save_records
 
 log = structlog.get_logger(__name__)
 
@@ -126,6 +126,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     # ── Auto-fill missing datetime_logged ──────────────────────────
     from datetime import datetime
     from zoneinfo import ZoneInfo
+
     from life_os.config.settings import settings
     
     tz = ZoneInfo(settings.timezone)
@@ -206,8 +207,13 @@ async def run(state: AgentState) -> dict[str, Any]:
     if len(records_to_save) > 0:
         from life_os.models.tasks import ReadingLink, TaskItem
         from life_os.models.wellness import (
-            ExerciseEntry, SleepEntry, MeditationEntry,
-            CleaningEntry, SittingEntry, GroupMeditationEntry, HabitEntry
+            CleaningEntry,
+            ExerciseEntry,
+            GroupMeditationEntry,
+            HabitEntry,
+            MeditationEntry,
+            SittingEntry,
+            SleepEntry,
         )
 
         n_sleep = SleepEntry(**sleep) if sleep and isinstance(sleep, dict) else None

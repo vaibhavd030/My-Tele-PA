@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, TypedDict
-import operator
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages

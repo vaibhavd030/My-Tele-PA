@@ -3,16 +3,9 @@ import pytest
 from types import SimpleNamespace
 
 from life_os.agent.nodes.query import run
-from life_os.integrations.sqlite_store import get_db, init_db, save_records
+from life_os.integrations.bigquery_store import get_db, init_db, save_records
 
 
-@pytest.fixture(autouse=True)
-def sqlite_test_db(mocker, tmp_path):
-    import life_os.integrations.sqlite_store as store
-    db_path = str(tmp_path / "query_test.db")
-    mocker.patch("life_os.config.settings.settings.db_path", db_path)
-    yield db_path
-    store._connection = None
 
 
 @pytest.mark.asyncio

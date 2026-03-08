@@ -1,17 +1,17 @@
 """Query node to answer questions about historical data using Text2SQL."""
 
-import json
 import datetime as dt
-from zoneinfo import ZoneInfo
+import json
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import BaseModel
 
 from life_os.agent.state import AgentState
-from life_os.config.clients import get_instructor_client, get_openai_client, calculate_cost
+from life_os.config.clients import calculate_cost, get_instructor_client, get_openai_client
 from life_os.config.settings import settings
-from life_os.integrations.sqlite_store import get_db
+from life_os.integrations.bigquery_store import get_db
 
 log = structlog.get_logger(__name__)
 
@@ -22,7 +22,7 @@ class SQLQuery(BaseModel):
 
 
 SCHEMA_PROMPT = """
-Table: records (id, user_id, date TEXT 'YYYY-MM-DD', type TEXT, data JSON, source TEXT)
+Table: `{project_id}.{dataset_id}.records` (id STRING, user_id STRING, date DATE, type STRING, data JSON, source STRING)
 Types and their JSON fields:
 - sleep: duration_hours (float), bedtime_hour (int), wake_hour (int), quality (int 1-10)
 - exercise: exercise_type (str), duration_minutes (int), distance_km (float), intensity (int), body_parts (list)
@@ -36,8 +36,8 @@ Types and their JSON fields:
 - tasks: task (str), priority (int 1-3)
 - journal_note: note (str)
 
-Use json_extract(data, '$.field') for JSON fields. Use SUM/AVG where appropriate.
-CRITICAL INSTRUCTION: If the user asks "how much I have slept in the last X days", they often want the "AVG" per day if X > 1. Use AVG() instead of SUM() for sleep. When filtering by date, use "date >= date('{today}', '-X days')" strictly, and rely on SQLite's date string representation.
+Use JSON_EXTRACT_SCALAR(data, '$.field') for JSON fields. Cast to INT64 or FLOAT64 before using SUM/AVG.
+CRITICAL INSTRUCTION: If the user asks "how much I have slept in the last X days", they often want the "AVG" per day if X > 1. Use AVG() instead of SUM() for sleep. When filtering by date, use "date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', '{today}'), INTERVAL X DAY)" strictly.
 Today's date is: {today}
 """
 
@@ -55,15 +55,22 @@ async def run(state: AgentState) -> dict[str, Any]:
     target_tz = ZoneInfo(settings.timezone)
     today_iso = dt.datetime.now(target_tz).replace(microsecond=0).isoformat()
     
+    # Format prompt variables
+    formatted_prompt = SCHEMA_PROMPT.format(
+        project_id=settings.gcp_project_id,
+        dataset_id=settings.bq_dataset_id,
+        today=today_iso.split('T')[0]
+    )
+    
     try:
         sql_response, raw_1 = await instructor_client.chat.completions.create_with_completion(
             model=settings.openai_model,
             response_model=SQLQuery,
             messages=[
-                {"role": "system", "content": SCHEMA_PROMPT.format(today=today_iso)},
+                {"role": "system", "content": formatted_prompt},
                 {
                     "role": "user",
-                    "content": f"User ID is '{user_id}'. Generate a query for: {query_text}",
+                    "content": f"User ID is '{user_id}'. Generate a BigQuery standard SQL query for: {query_text}",
                 },
             ],
         )
@@ -75,22 +82,18 @@ async def run(state: AgentState) -> dict[str, Any]:
         return {"response_message": "Sorry, I couldn't formulate a query for that."}
 
     # Execute SQL
-    db = await get_db()
+    client = get_db()
     try:
         if not sql_query.strip().upper().startswith("SELECT"):
             raise ValueError("Only SELECT queries are allowed.")
             
-        await db.execute('BEGIN TRANSACTION')
-        cursor = await db.execute(sql_query)
-        rows = await cursor.fetchall()
-        await db.execute('ROLLBACK')  # read-only, never commit
+        results_iterator = client.query(sql_query).result()
         
         results = []
-        for r in rows:
-            results.append(dict(r))
+        for r in results_iterator:
+            results.append(dict(r.items()))
             
     except Exception as exc:
-        await db.execute('ROLLBACK')
         log.error("failed_to_execute_sql", error=str(exc), query=sql_query)
         return {"response_message": "Sorry, I ran into an issue retrieving the data."}
 

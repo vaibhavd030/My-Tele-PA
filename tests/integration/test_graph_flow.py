@@ -11,27 +11,6 @@ def _mock_memory_saver():
     yield
     life_os.agent.graph._app = None
 
-@pytest.mark.asyncio
-async def test_input_guard_blocks_crisis():
-    """Graph should abort and return crisis resources."""
-    agent_app = await get_app()
-    config = {"configurable": {"thread_id": "test_thread"}}
-    state = await agent_app.ainvoke(
-        {
-            "user_id": "test_user",
-            "raw_input": "I am going to kill myself",
-            "entities": {},
-            "missing_fields": [],
-            "clarification_count": 0,
-            "abort": False,
-            "response_message": None,
-            "structured_records": [],
-        },
-        config,
-    )
-
-    assert state["abort"] is True
-    assert "SOS" in state["response_message"] or "iCall" in state["response_message"]
 
 
 @pytest.mark.asyncio

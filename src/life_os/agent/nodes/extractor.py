@@ -6,7 +6,7 @@ Handles partial data gracefully for the clarification loop downstream.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,7 @@ import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from life_os.agent.state import AgentState
-from life_os.config.clients import get_instructor_client, calculate_cost
+from life_os.config.clients import calculate_cost, get_instructor_client
 from life_os.config.settings import settings
 from life_os.models.wellness import ExtractedData
 
@@ -80,7 +80,7 @@ async def run(state: AgentState) -> AgentState:
     log.info("extracting_entities", user_id=state["user_id"])
 
     # ── Check clarification TTL ───────────────────────────────────────────
-    now_ts = datetime.now(timezone.utc).timestamp()
+    now_ts = datetime.now(UTC).timestamp()
     last_ts = state.get("last_interaction_ts")
     is_clarifying = bool(state.get("missing_fields"))
     if is_clarifying and last_ts and (now_ts - last_ts > 1800):
