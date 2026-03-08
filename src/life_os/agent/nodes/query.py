@@ -1,7 +1,8 @@
 """Query node to answer questions about historical data using Text2SQL."""
 
 import json
-from datetime import datetime
+import datetime as dt
+from zoneinfo import ZoneInfo
 from typing import Any
 
 import structlog
@@ -36,6 +37,7 @@ Types and their JSON fields:
 - journal_note: note (str)
 
 Use json_extract(data, '$.field') for JSON fields. Use SUM/AVG where appropriate.
+CRITICAL INSTRUCTION: If the user asks "how much I have slept in the last X days", they often want the "AVG" per day if X > 1. Use AVG() instead of SUM() for sleep. When filtering by date, use "date >= date('{today}', '-X days')" strictly, and rely on SQLite's date string representation.
 Today's date is: {today}
 """
 
@@ -49,12 +51,16 @@ async def run(state: AgentState) -> dict[str, Any]:
 
     instructor_client = get_instructor_client()
     tokens1, cost1 = 0, 0.0
+    
+    target_tz = ZoneInfo(settings.timezone)
+    today_iso = dt.datetime.now(target_tz).replace(microsecond=0).isoformat()
+    
     try:
         sql_response, raw_1 = await instructor_client.chat.completions.create_with_completion(
             model=settings.openai_model,
             response_model=SQLQuery,
             messages=[
-                {"role": "system", "content": SCHEMA_PROMPT.format(today=datetime.now().isoformat())},
+                {"role": "system", "content": SCHEMA_PROMPT.format(today=today_iso)},
                 {
                     "role": "user",
                     "content": f"User ID is '{user_id}'. Generate a query for: {query_text}",
