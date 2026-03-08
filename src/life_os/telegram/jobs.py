@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 
 from life_os.config.clients import get_openai_client
 from life_os.config.settings import settings
-from life_os.integrations.sqlite_store import get_db
+from life_os.integrations.bigquery_store import get_db
 
 log = structlog.get_logger(__name__)
 
@@ -34,14 +34,29 @@ async def send_weekly_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = int(context.job.chat_id)
     user_id = str(chat_id)
 
-    db = await get_db()
+    from google.cloud import bigquery
+    db = get_db()
     seven_days_ago = (datetime.now() - timedelta(days=7)).date().isoformat()
-    cursor = await db.execute(
-        "SELECT date, type, data FROM records "
-        "WHERE user_id = ? AND date >= ? ORDER BY date DESC",
-        (user_id, seven_days_ago),
+    
+    query = f"""
+        SELECT date, type, data FROM `{settings.gcp_project_id}.{settings.bq_dataset_id}.records`
+        WHERE user_id = @user_id AND date >= PARSE_DATE('%Y-%m-%d', @seven_days_ago)
+        ORDER BY date DESC
+    """
+    
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("seven_days_ago", "STRING", seven_days_ago),
+        ]
     )
-    rows = await cursor.fetchall()
+    
+    try:
+        results = db.query(query, job_config=job_config).result()
+        rows = list(results)
+    except Exception as exc:
+        log.error("weekly_digest_query_failed", error=str(exc))
+        rows = []
 
     if not rows:
         await context.bot.send_message(

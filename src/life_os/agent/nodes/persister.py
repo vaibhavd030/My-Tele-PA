@@ -247,7 +247,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     # ── SQLite save ───────────────────────────────────────────────────────
     if records_to_save:
         await save_records(user_id=user_id, records=records_to_save)
-        log.info("saved_records_to_sqlite", count=len(records_to_save), user_id=user_id)
+        log.info("saved_records", count=len(records_to_save), user_id=user_id)
 
     final_response = "\n".join(response_parts)
 
