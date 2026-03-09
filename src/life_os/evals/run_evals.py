@@ -10,7 +10,10 @@ from life_os.evals.metrics import slot_fill_f1
 PASS_THRESHOLD_F1 = 0.80  # Fail CI if below this
 
 
-async def run_extraction_evals() -> dict[str, float]:
+from unittest.mock import patch
+
+@patch("life_os.agent.nodes.persister.save_records")
+async def run_extraction_evals(mock_save) -> dict[str, float]:
     """Run all extraction eval cases, return aggregate metrics.
 
     Returns:
