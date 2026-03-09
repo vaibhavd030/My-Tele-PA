@@ -9,7 +9,6 @@ The system leverages conversational memory to naturally clarify missing informat
 - **Voice Note Parsing**: Send audio or voice notes; the bot transcribes them instantly using OpenAI Whisper and merges the context smoothly into your journal.
 - **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities at once.
 - **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, specific Spiritual Practices (Sitting, Cleaning, Meditation), Habit Tracking, and Sleep straight to designated Notion databases seamlessly.
-- **Unified Journaling (Mood & Energy)**: Subjective feelings and metrics (like Mood and Energy levels) are extracted and safely prepended to your rich-text journal entries to ensure the emotional narrative is never lost (e.g., `[Mood: 8/10] | [Energy: 7/10] I felt really productive today...`).
 - **Natural Language Analytics (BigQuery)**: You can query your historical data naturally. E.g., *"How much did I sleep in the last 2 days?"* or *"What was my average mood this week?"* The agent translates this to active BigQuery Standard SQL, parses the results, and replies conversationally.
 - **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train?").
 - **Apple Health Integration SDK**: Built-in webhook for the 'Health Auto Export' iOS app to passively ingest Apple Health Sleep records into your Life OS.
@@ -65,16 +64,16 @@ graph TD
 
 The Life OS agent is designed to be your central hub for tracking personal metrics. Below is a roadmap of the core modules, their scope, and how to use them natively via Telegram.
 
-### 1. 📝 Journaling & Subjective Moods
-**Scope**: Capturing your daily narrative, thoughts, and subjective feelings.
-**How it Works**: The agent actively extracts your text narrative while looking for subjective markers (e.g., "I feel happy" or "I'm exhausted"). It prepends a validated `[Mood: X/10] | [Energy: Y/10]` score directly to your text so the emotional context is never lost in Notion.
+### 1. 📝 Journaling
+**Scope**: Capturing your daily narrative and thoughts.
+**How it Works**: The agent actively extracts your text narrative and pushes it directly to your Notion Journal database.
 
 **User:** 
 > "I feel pretty sad about the job rejection today, my energy is completely gone."
 
 **Bot:**
 > I have logged the following:
-> 📝 Journal: [Mood: 3/10] | [Energy: 2/10] I feel pretty sad about the job rejection today, my energy is completely gone.
+> 📝 Journal: I feel pretty sad about the job rejection today, my energy is completely gone.
 > ✨ Synced to Notion!
 
 ### 2. 🧘 Spiritual Practices & Meditation
