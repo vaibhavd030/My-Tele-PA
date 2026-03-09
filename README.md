@@ -61,41 +61,61 @@ graph TD
 
 ---
 
-## 💬 Usage Examples
+## 🗺️ Core Modules & Usage Roadmap
 
-### 1. Multi-Entity Logging 
-You can brain-dump multiple things at once. The extractor pulls them apart.
+The Life OS agent is designed to be your central hub for tracking personal metrics. Below is a roadmap of the core modules, their scope, and how to use them natively via Telegram.
+
+### 1. 📝 Journaling & Subjective Moods
+**Scope**: Capturing your daily narrative, thoughts, and subjective feelings.
+**How it Works**: The agent actively extracts your text narrative while looking for subjective markers (e.g., "I feel happy" or "I'm exhausted"). It prepends a validated `[Mood: X/10] | [Energy: Y/10]` score directly to your text so the emotional context is never lost in Notion.
 
 **User:** 
-> "feeling good today, built a health journal app, had coffee, did 20 mins of sitting meditation at 7am, and need to call the dentist tomorrow"
+> "I feel pretty sad about the job rejection today, my energy is completely gone."
 
 **Bot:**
 > I have logged the following:
-> 🧘 Wellness: @ 07:00, 20 mins (Sitting)
-> 📝 Journal: [Mood: 8/10] Feeling good today, built a health journal app, had coffee
-> ✅ Tasks: call the dentist tomorrow
-> 
+> 📝 Journal: [Mood: 3/10] | [Energy: 2/10] I feel pretty sad about the job rejection today, my energy is completely gone.
 > ✨ Synced to Notion!
 
-### 2. The Clarification Loop
-If you provide partial data, the bot knows what schema fields are missing and asks.
+### 2. 🧘 Spiritual Practices & Meditation
+**Scope**: Tracking mindfulness sessions, specifically supporting general `Meditation`, Heartfulness `Cleaning`, `Sitting` (Transmission), and `Group Meditation` (Satsang).
+**How it Works**: Just dictate what you did and for how long. The agent maps it to the specific spiritual practice schema. For 'Sittings', you can mention the preceptor, and for 'Group Meditations', you can mention the location.
 
 **User:** 
-> "Went to the gym and did weights training"
-
-**Bot:**
-> Which body part(s) did you train? Options: Full body, Chest, Biceps, Triceps, Shoulders, Back, Abs, Lower body
-
-**User:** 
-> "chest and triceps, for 45 mins"
+> "Did 45 mins of cleaning at 6pm, and then a 30 min sitting from John."
 
 **Bot:**
 > I have logged the following:
-> 🏃 Exercise: Weights, 45 mins | Body: Chest, Triceps
+> 🧘 Wellness: @ 18:00, 45 mins (Cleaning) | @ 18:45, 30 mins (Sitting from John)
 > ✨ Synced to Notion!
 
-### 3. Habit Tracking
-The agent tracks specific, mindful negative (or positive) habits you want to monitor. Current supported categories include: `lost_self_control` (e.g. lost your temper, emotional outbursts), `junk_food`, `outside_food`, `late_eating`, `screen_time` (e.g. doomscrolling), and a catch-all `other`.
+### 3. 🏃 Exercise & Training Logging
+**Scope**: Logging physical activity including run, walk, gym/weights, yoga, swim, cycle, and other custom physical activities.
+**How it Works**: If you mention weight training, the Pydantic schema expects to know the *Duration* and the *Muscle Group* (Chest, Biceps, Full Body, etc.). If you forget a required field, the Clarification Loop will simply ask you for it!
+
+**User:** 
+> "Went to the gym for 45 mins and did a heavy chest and triceps day. Intensity was an 8."
+
+**Bot:**
+> I have logged the following:
+> 🏃 Exercise: Gym, 45 mins | Body: Chest, Triceps | Intensity: 8/10
+> ✨ Synced to Notion!
+
+### 4. 🔖 Reading List & Content Routing
+**Scope**: Saving articles, YouTube videos, and web links to read or watch later.
+**How it Works**: Drop a valid HTTP link into the chat. The agent bypasses complex NLP models and auto-routes it directly into your Notion Reading Database.
+
+**User:** 
+> `https://medium.com/some-article-link`
+
+**Bot:**
+> I have logged the following:
+> 🔖 Reading: 1 link(s) saved
+> ✨ Synced to Notion!
+
+### 5. 📊 Habit Tracking
+**Scope**: Monitoring repetitive behaviors (positive or negative) to stay mindful.
+**How it Works**: Safely logs behaviors into dedicated categories: `lost_self_control`, `junk_food`, `outside_food`, `late_eating`, `screen_time`, and `other` without losing the conversational context.
 
 **User:** 
 > "I lost my self control today and yelled at traffic, also watched netflix till 2am."
@@ -106,21 +126,15 @@ The agent tracks specific, mindful negative (or positive) habits you want to mon
 > 📝 Journal: I lost my self control today and yelled at traffic, also watched netflix till 2am.
 > ✨ Synced to Notion!
 
-### 4. Natural Language Analytics
+### 6. 🧠 Natural Language Analytics
+**Scope**: Querying your BigQuery database using normal human questions.
+**How it Works**: Ask a question. The `Query Node` converts your question into strict executable BigQuery SQL, runs the mathematical analysis against your stored tables, and replies naturally.
+
 **User:** 
-> "How much did I sleep in the last 2 days?"
+> "What was my average mood this week?"
 
 **Bot:**
-> You slept an average of 7.2 hours over the last two days.
-
-### 5. Reading List Auto-routing
-**User:** 
-> `https://medium.com/some-article-link`
-
-**Bot:**
-> I have logged the following:
-> 🔖 Reading: 1 link(s) saved
-> ✨ Synced to Notion!
+> You had an average mood of 7.5 over the last 7 days!
 
 ---
 
