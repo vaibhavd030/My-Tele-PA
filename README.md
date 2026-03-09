@@ -1,30 +1,32 @@
 # My Tele PA (Personal Life OS Agent v2.0)
 
-A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reading links, and journal entries using LangGraph, Instructor, and GPT-4o. 
+A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reading links, and journal entries using **LangGraph**, **Instructor**, and **GPT-4o**. 
 
-The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using Pydantic, stores data centrally using Google BigQuery, and conditionally syncs all organized data straight to Notion databases.
+The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using **Pydantic**, stores data centrally using **Google BigQuery**, and conditionally syncs all organized data straight to **Notion databases**.
 
-## Features
+## ✨ Features
 
 - **Voice Note Parsing**: Send audio or voice notes; the bot transcribes them instantly using OpenAI Whisper and merges the context smoothly into your journal.
-- **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities.
-- **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, specific Spiritual Practices (Sitting, Cleaning, Meditation), Habit Tracking (e.g. junk food, screen time), and Sleep straight to designated Notion databases seamlessly.
-- **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train? And duration?").
-- **Apple Health Integration SDK**: Built-in webhook for the 'Health Auto Export' iOS app to passively ingest and catalog Apple Health Sleep records into your Life OS.
-- **Conversational Chitchat fallback**: If your message is just casual talk, a dedicated LLM node warmly acknowledges it and asks if you'd like to log anything.
-- **Serverless Ready**: Fully compatible with Google Cloud Run using an optimized synchronous webhook design that scales to zero to save costs.
+- **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities at once.
+- **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, specific Spiritual Practices (Sitting, Cleaning, Meditation), Habit Tracking, and Sleep straight to designated Notion databases seamlessly.
+- **Unified Journaling (Mood & Energy)**: Subjective feelings and metrics (like Mood and Energy levels) are extracted and safely prepended to your rich-text journal entries to ensure the emotional narrative is never lost (e.g., `[Mood: 8/10] | [Energy: 7/10] I felt really productive today...`).
+- **Natural Language Analytics (BigQuery)**: You can query your historical data naturally. E.g., *"How much did I sleep in the last 2 days?"* or *"What was my average mood this week?"* The agent translates this to active BigQuery Standard SQL, parses the results, and replies conversationally.
+- **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train?").
+- **Apple Health Integration SDK**: Built-in webhook for the 'Health Auto Export' iOS app to passively ingest Apple Health Sleep records into your Life OS.
 - **Proactive Schedulers**: Automatically pings you at 8am daily for check-ins and Sunday at 7pm for a weekly digest.
+- **Serverless Ready (Cloud Run)**: Fully compatible with Google Cloud Run using an optimized synchronous webhook design that scales to zero to save costs. Stateful checkpoints are preserved via mounted volumes.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
-The system runs as an asynchronous Telegram polling application paired with a robust Agentic Workflow:
-- **LangGraph**: Orchestrates the state machine, routing between classification, entity extraction, missing-field logic loops, and database persistence.
+The system runs as an asynchronous Telegram polling/webhook application paired with a robust Agentic Workflow:
+
+- **LangGraph**: Orchestrates the state machine, routing between classification, entity extraction, missing-field logic loops, analytical querying, and database persistence.
 - **Instructor**: Enforces deterministic JSON schemas directly from the OpenAI `gpt-4o` models.
 - **Pydantic (v2)**: Validates typing and value thresholds across all extracted payloads.
 - **Google BigQuery**: Provides high-speed serverless querying capability mapped naturally to Google Connected Sheets.
-- **SQLite**: Local Fallback handles `AsyncSqliteSaver` agent conversational checkpoints across serverless webhooks.
+- **SQLite**: Handles `AsyncSqliteSaver` agent conversational memory checkpoints across serverless webhooks.
 
 ### Agentic Graph Flow
 
@@ -59,7 +61,7 @@ graph TD
 
 ---
 
-## Example Interactions
+## 💬 Usage Examples
 
 ### 1. Multi-Entity Logging 
 You can brain-dump multiple things at once. The extractor pulls them apart.
@@ -70,7 +72,7 @@ You can brain-dump multiple things at once. The extractor pulls them apart.
 **Bot:**
 > I have logged the following:
 > 🧘 Wellness: @ 07:00, 20 mins (Sitting)
-> 📝 Journal: Feeling good today, built a health journal app, had coffee
+> 📝 Journal: [Mood: 8/10] Feeling good today, built a health journal app, had coffee
 > ✅ Tasks: call the dentist tomorrow
 > 
 > ✨ Synced to Notion!
@@ -92,7 +94,26 @@ If you provide partial data, the bot knows what schema fields are missing and as
 > 🏃 Exercise: Weights, 45 mins | Body: Chest, Triceps
 > ✨ Synced to Notion!
 
-### 3. Reading List Auto-routing
+### 3. Habit Tracking
+The agent tracks specific, mindful negative (or positive) habits you want to monitor. Current supported categories include: `lost_self_control` (e.g. lost your temper, emotional outbursts), `junk_food`, `outside_food`, `late_eating`, `screen_time` (e.g. doomscrolling), and a catch-all `other`.
+
+**User:** 
+> "I lost my self control today and yelled at traffic, also watched netflix till 2am."
+
+**Bot:**
+> I have logged the following:
+> 📊 Habit Tracker: Self Control: Yelled at traffic | Screen Time: Watched netflix till 2am
+> 📝 Journal: I lost my self control today and yelled at traffic, also watched netflix till 2am.
+> ✨ Synced to Notion!
+
+### 4. Natural Language Analytics
+**User:** 
+> "How much did I sleep in the last 2 days?"
+
+**Bot:**
+> You slept an average of 7.2 hours over the last two days.
+
+### 5. Reading List Auto-routing
 **User:** 
 > `https://medium.com/some-article-link`
 
@@ -103,9 +124,9 @@ If you provide partial data, the bot knows what schema fields are missing and as
 
 ---
 
-## File Organization & Component Interaction
+## 📁 File Organization & Component Interaction
 
-The repository is modularly designed, separating the generic Agent pipeline from the Telegram Interface.
+The repository is modularly designed, separating the generic Agent pipeline from the Telegram Interface. Development clutter has been strictly removed to ensure a clean production image.
 
 ```text
 ├── Dockerfile                    # Containerization instructions
@@ -116,32 +137,32 @@ The repository is modularly designed, separating the generic Agent pipeline from
 │       ├── agent/                # Core LangGraph agent definitions
 │       │   ├── graph.py          # State graph wiring and execution compilation
 │       │   ├── state.py          # Agent state typings
-│       │   ├── prompts/          # System prompts for GPT-4o extractions
+│       │   ├── prompts/          # System prompts for GPT-4o extractions & SQL Generation
 │       │   └── nodes/            # 
 │       │       ├── classifier.py # Routes to log, query, or chitchat
 │       │       ├── extractor.py  # Uses Instructor to pull Pydantic models from text; handles merge logic
 │       │       ├── persister.py  # Formats confirmation message & pushes to BigQuery/Notion
-│       │       ├── query.py      # LLM powered native BigQuery SQL Summarization logic 
-│       │       └── guard.py      # Safety checks and state cleanups
+│       │       ├── query.py      # LLM powered native BigQuery SQL Analytics logic 
+│       │       └── guard.py      # Prompt injection safety checks
 │       ├── config/               # Pydantic env settings and structlog config
-│       ├── evals/                # Custom evaluation datasets & F1 metric tracking
+│       ├── evals/                # Custom evaluation datasets & F1 metric tracking (Mock-based)
 │       ├── integrations/         # 
 │       │   ├── bigquery_store.py # Async BigQuery clients supporting Cloud Run bindings
 │       │   └── notion_store.py   # Tenacity-retried API calls to Notion databases
 │       ├── models/               # 
-│       │   ├── wellness.py       # Sleep, Exercise, and Wellness schemas
+│       │   ├── wellness.py       # Sleep, Exercise, and Wellness schemas (Including Habit Tracking)
 │       │   └── tasks.py          # Task and ReadingLink schemas
 │       └── telegram/             
-│           ├── bot.py            # python-telegram-bot handlers
+│           ├── bot.py            # python-telegram-bot webhook handlers and polling core
 │           └── jobs.py           # APScheduler cron jobs (morning check-in, weekly digest)
 ├── tests/
-│   ├── integration/              # Tests LangGraph node chaining logic
-│   └── unit/                     # Unit tests for LLM extractor accuracy
+│   ├── integration/              # Pytest Asyncio tests covering LangGraph node chaining logic
+│   └── unit/                     # Unit tests for LLM extractor accuracy and edge cases
 ```
 
 ---
 
-## Installation & Setup
+## 🚀 Installation & Setup
 
 1. **Clone the repository**
    ```bash
@@ -173,7 +194,7 @@ The repository is modularly designed, separating the generic Agent pipeline from
 
 ---
 
-## Running the Project
+## 🧪 Running the Project
 
 ### Local Execution (Polling Mode)
 Run the script to actively ping Telegram servers for incoming app messages.
@@ -188,7 +209,7 @@ uv run python simulation.py
 ```
 
 ### Evaluations and Tests
-A test suite handles node executions, and a custom CI evaluation script tracks Agentic metric parsing accuracy over `GPT-4o`.
+A test suite handles node executions, and a custom CI evaluation script tracks Agentic metric parsing accuracy over `GPT-4o` without requiring live GCP credentials.
 ```bash
 make test
 make eval
@@ -196,8 +217,10 @@ make eval
 
 ---
 
-## Serverless Deployment
+## ☁️ Serverless Deployment
 
 For 24/7 availability on a serverless architecture (meaning you pay $0.00 when the bot is not in use), the application can be seamlessly deployed to Google Cloud Run bounding to a Webhook instead of polling.
 
-For the required environment variables and `gcloud` deployment commands, see [deploy.md](deploy.md).
+This setup securely provisions Cloud Storage FUSE to handle durable conversation `.db` checkpoints across container resets.
+
+For the required environment variables and `gcloud` deployment commands securely configured for `us-central1` instances, see [deploy.md](deploy.md).
