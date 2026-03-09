@@ -227,6 +227,19 @@ async def run(state: AgentState) -> dict[str, Any]:
         n_tasks = [TaskItem(**t) for t in notion_tasks if isinstance(t, dict)] or None
         n_links = [ReadingLink(**lnk) for lnk in notion_links if isinstance(lnk, dict)] or None
 
+        notion_journal_note = journal_note
+        prefix_parts = []
+        if mood_score:
+            prefix_parts.append(f"Mood: {mood_score}/10")
+        if energy_level:
+            prefix_parts.append(f"Energy: {energy_level}/10")
+        if prefix_parts:
+            prefix_str = f"[{' | '.join(prefix_parts)}] "
+            if notion_journal_note:
+                notion_journal_note = prefix_str + notion_journal_note
+            else:
+                notion_journal_note = prefix_str + "Logged subjective metrics."
+
         failed_syncs = await append_notion_blocks(
             tasks=n_tasks,
             links=n_links,
@@ -237,7 +250,7 @@ async def run(state: AgentState) -> dict[str, Any]:
             sitting=n_sit,
             group_meditation=n_group,
             habits=n_habits,
-            journal_note=journal_note,
+            journal_note=notion_journal_note,
         )
         if not failed_syncs:
             response_parts.append("✨ Synced to Notion!")

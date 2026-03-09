@@ -25,9 +25,9 @@ Guidelines:
    NEVER put spiritual practices in the exercise list. Yoga IS exercise; meditation is NOT.
 8. If the user shares a URL to read, save it to `reading_links` with optional context. CAUTION: The `url` field MUST ONLY contain the exact, raw URL (e.g. "https://example.com/article"). Do NOT include surrounding text, spaces, commas, or words in the URL string itself. Put any surrounding thoughts into the `context` field.
 9. If the user mentions a specific action item or task *to do in the future*, save it to `tasks` and infer the priority.
-10. ALWAYS write a `journal_note` summarizing the user's entire message into a cohesive first-person narrative string. 
+10. CRITICAL: You MUST ALWAYS write a `journal_note` for ANY conversational message you receive! Do NOT throw away the user's narrative text, even if you successfully extract a `mood_score` or `energy_level`. The `journal_note` should be a cohesive first-person narrative string summarizing their entire message.
     - Include ALL activities: sleep, exercise, meditation, cleaning, sitting, group meditation, habits, tasks, mood, energy, meals.
-    - EVEN IF extracted into structured fields, still mention in the journal.
+    - EVEN IF extracted into structured fields, still mention them in the journal.
     - For habits, phrase them reflectively: "I noticed I ate junk food today - something to be mindful of."
     - DO NOT save past events or reflections as future `tasks`.
     - EXCEPTION: If the user is ONLY answering a short clarification question OR if they are ONLY sharing a URL / reading link, you MUST leave `journal_note` null. Do not generate a journal note or narrative string for it.
