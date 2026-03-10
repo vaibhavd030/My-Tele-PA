@@ -40,7 +40,7 @@ async def run(state: AgentState) -> dict[str, Any]:
                 "role": "system",
                 "content": (
                     "Classify the user's message into one of three intents:\n"
-                    "- 'log': The user is sharing anything about their day, health, mood, "
+                    "- 'log': The user is sharing anything about their day, health, "
                     "activities, plans, food, work, journal entries, tasks, links, or anything "
                     "they did, felt, or are planning to do. A bare URL or a URL prefixed with "
                     "'to read:' / 'read:' is always 'log'. When in doubt, choose 'log'.\n"

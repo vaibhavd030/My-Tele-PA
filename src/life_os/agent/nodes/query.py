@@ -31,8 +31,6 @@ Types and their JSON fields:
 - sitting: duration_minutes (int), took_from (str), datetime_logged (ISO str)
 - group_meditation: duration_minutes (int), place (str), datetime_logged (ISO str)
 - habit: category (str: lost_self_control|junk_food|outside_food|late_eating|screen_time|other), description (str)
-- mood: mood_score (int 1-10)
-- energy: energy_level (int 1-10)
 - tasks: task (str), priority (int 1-3)
 - journal_note: note (str)
 

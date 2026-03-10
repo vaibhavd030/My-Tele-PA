@@ -70,7 +70,7 @@ The SleepEntry model now uses quality: int (1-10) but the extraction prompt stil
 
 # **3\. Wellness Model Overhaul**
 
-The current WellnessEntry is a single flat model that handles all meditation types, mood, and energy in one object. This causes several problems: (a) a user who does both meditation and cleaning in the same day can only log one, (b) each practice type has unique fields (e.g., 'took from' for sitting, 'place' for group meditation) that do not fit in a generic model, and (c) the Notion sync writes everything to a single wellness page rather than separate practice-specific pages.
+The current WellnessEntry is a single flat model that handles all meditation types in one object. This causes several problems: (a) a user who does both meditation and cleaning in the same day can only log one, (b) each practice type has unique fields (e.g., 'took from' for sitting, 'place' for group meditation) that do not fit in a generic model, and (c) the Notion sync writes everything to a single wellness page rather than separate practice-specific pages.
 
 ## **3.1 New Pydantic Models**
 
@@ -171,10 +171,6 @@ class ExtractedData(BaseModel):
     reading\_links: list\[ReadingLink\] \= Field(default\_factory=list)
 
     journal\_note: str | None \= None
-
-    mood\_score: Annotated\[int, Field(ge=1, le=10)\] | None \= None
-
-    energy\_level: Annotated\[int, Field(ge=1, le=10)\] | None \= None
 
 Note: mood\_score and energy\_level are now top-level fields on ExtractedData rather than nested inside a wellness object. This makes them independent of any specific practice.
 
@@ -351,7 +347,6 @@ class HabitEntry(BaseModel):
     description: str \= Field(
 
         description='What happened, e.g. ate ice cream, ordered Deliveroo, watched Netflix till 2am'
-
     )
 
     notes: str | None \= None
@@ -434,7 +429,7 @@ The journal\_note field in ExtractedData must now include ALL tracked activities
 
     \- Include ALL activities: sleep, exercise, meditation, cleaning, sitting,
 
-      group meditation, habits, tasks, mood, energy, meals.
+      group meditation, habits, tasks, meals.
 
     \- EVEN IF extracted into structured fields, still mention in the journal.
 
@@ -461,10 +456,6 @@ Update the persister to include new entity types in the confirmation message and
     "group\_meditation": "🕊️ Group Meditation",
 
     "habits": "📊 Habit Tracker",
-
-    "mood": "😊 Mood",
-
-    "energy": "⚡ Energy",
 
 })
 
@@ -597,7 +588,6 @@ async def save\_if\_not\_duplicate(user\_id: str, record: dict) \-\> bool:
 apple\_health\_token: str | None \= Field(
 
     default=None, description='Bearer token for Apple Health ingest endpoint'
-
 )
 
 ## **6.2 Approach B: Manual XML Export \+ Telegram Upload**
@@ -670,7 +660,7 @@ def upgrade() \-\> None:
 
 ## **7.2 New Record Types**
 
-The 'type' column in the records table will now accept these additional values: meditation, cleaning, sitting, group\_meditation, habit, mood, energy. The existing 'wellness' type is deprecated; old records should still be queryable but new records use the specific types.
+The 'type' column in the records table will now accept these additional values: meditation, cleaning, sitting, group\_meditation, habit. The existing 'wellness' type is deprecated; old records should still be queryable but new records use the specific types.
 
 # **8\. Implementation Roadmap**
 
@@ -739,8 +729,6 @@ The 'type' column in the records table will now accept these additional values: 
 * Update journal prompt rule 10 to cover all new entity types (5.1).
 
 * Update persister confirmation message to show all new sections (5.2).
-
-* Ensure mood\_score and energy\_level are persisted as separate record types.
 
 ## **Phase 5: Apple Health Integration (2-3 days)**
 

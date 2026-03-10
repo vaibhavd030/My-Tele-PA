@@ -205,5 +205,3 @@ class ExtractedData(BaseModel):
     tasks: list[TaskItem] = Field(default_factory=list)
     reading_links: list[ReadingLink] = Field(default_factory=list)
     journal_note: str | None = None
-    mood_score: Annotated[int, Field(ge=1, le=10)] | None = None
-    energy_level: Annotated[int, Field(ge=1, le=10)] | None = None

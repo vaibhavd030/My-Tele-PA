@@ -69,7 +69,7 @@ async def chitchat_node(state: AgentState) -> dict[str, Any]:
                     "You are a friendly personal life assistant. The user sent a message that "
                     "doesn't clearly map to a data-logging or data-query action. "
                     "Briefly acknowledge what they said (1-2 sentences), then gently ask "
-                    "if they'd like to log any part of it — e.g. mood, activity, tasks, or plans. "
+                    "if they'd like to log any part of it — e.g. activity, tasks, or plans. "
                     "Be warm and concise. Do NOT repeat back lengthy quotes. Use plain text."
                 ),
             },

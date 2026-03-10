@@ -22,8 +22,6 @@ _ICONS: dict[str, str] = {
     "sitting": "🪷 Sitting",
     "group_meditation": "🕊️ Group Meditation",
     "habits": "📊 Habit Tracker",
-    "mood": "😊 Mood",
-    "energy": "⚡ Energy",
     "tasks": "✅ Tasks",
     "reading_links": "🔖 Reading",
     "journal_note": "📝 Journal",
@@ -169,16 +167,6 @@ async def run(state: AgentState) -> dict[str, Any]:
     if habits:
         logged_sections.append(f"{_ICONS['habits']}: {_summarise_habits(habits)}")
 
-    mood_score = entities.get("mood_score")
-    if mood_score:
-        records_to_save.append({"type": "mood", "mood_score": mood_score})
-        logged_sections.append(f"{_ICONS['mood']}: {mood_score}/10")
-        
-    energy_level = entities.get("energy_level")
-    if energy_level:
-        records_to_save.append({"type": "energy", "energy_level": energy_level})
-        logged_sections.append(f"{_ICONS['energy']}: {energy_level}/10")
-
     if journal_note:
         records_to_save.append({"type": "journal_note", "note": journal_note})
         preview = journal_note if len(journal_note) <= 80 else journal_note[:77] + "..."
@@ -228,17 +216,6 @@ async def run(state: AgentState) -> dict[str, Any]:
         n_links = [ReadingLink(**lnk) for lnk in notion_links if isinstance(lnk, dict)] or None
 
         notion_journal_note = journal_note
-        prefix_parts = []
-        if mood_score:
-            prefix_parts.append(f"Mood: {mood_score}/10")
-        if energy_level:
-            prefix_parts.append(f"Energy: {energy_level}/10")
-        if prefix_parts:
-            prefix_str = f"[{' | '.join(prefix_parts)}] "
-            if notion_journal_note:
-                notion_journal_note = prefix_str + notion_journal_note
-            else:
-                notion_journal_note = prefix_str + "Logged subjective metrics."
 
         failed_syncs = await append_notion_blocks(
             tasks=n_tasks,

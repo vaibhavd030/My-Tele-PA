@@ -1,6 +1,6 @@
 # My Tele PA (Personal Life OS Agent v2.0)
 
-A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise, mood), tasks, reading links, and journal entries using **LangGraph**, **Instructor**, and **GPT-4o**. 
+A production-grade Telegram bot agent that acts as a Personal Life OS. It tracks wellness (sleep, exercise), tasks, reading links, and journal entries using **LangGraph**, **Instructor**, and **GPT-4o**. 
 
 The system leverages conversational memory to naturally clarify missing information, rigidly validates extracted payloads using **Pydantic**, stores data centrally using **Google BigQuery**, and conditionally syncs all organized data straight to **Notion databases**.
 
@@ -9,7 +9,7 @@ The system leverages conversational memory to naturally clarify missing informat
 - **Voice Note Parsing**: Send audio or voice notes; the bot transcribes them instantly using OpenAI Whisper and merges the context smoothly into your journal.
 - **Contextual NLP Parsing**: Handles natural conversational language to log complex life entities at once.
 - **Auto-Routing (Notion Sync)**: Pushes Reading Links, Tasks, Journal Entries, Exercise, specific Spiritual Practices (Sitting, Cleaning, Meditation), Habit Tracking, and Sleep straight to designated Notion databases seamlessly.
-- **Natural Language Analytics (BigQuery)**: You can query your historical data naturally. E.g., *"How much did I sleep in the last 2 days?"* or *"What was my average mood this week?"* The agent translates this to active BigQuery Standard SQL, parses the results, and replies conversationally.
+- **Natural Language Analytics (BigQuery)**: You can query your historical data naturally. E.g., *"How much did I sleep in the last 2 days?"* or *"How many days did I exercise this week?"* The agent translates this to active BigQuery Standard SQL, parses the results, and replies conversationally.
 - **Interactive Clarification Loop**: If you provide partial data (e.g., "Went to the gym"), the agent pauses and asks for the missing fields (e.g., "Which body part did you train?").
 - **Apple Health Integration SDK**: Built-in webhook for the 'Health Auto Export' iOS app to passively ingest Apple Health Sleep records into your Life OS.
 - **Proactive Schedulers**: Automatically pings you at 8am daily for check-ins and Sunday at 7pm for a weekly digest.
@@ -130,10 +130,10 @@ The Life OS agent is designed to be your central hub for tracking personal metri
 **How it Works**: Ask a question. The `Query Node` converts your question into strict executable BigQuery SQL, runs the mathematical analysis against your stored tables, and replies naturally.
 
 **User:** 
-> "What was my average mood this week?"
+> "What was my average sleep duration this week?"
 
 **Bot:**
-> You had an average mood of 7.5 over the last 7 days!
+> You had an average sleep duration of 7.5 hours over the last 7 days!
 
 ---
 
