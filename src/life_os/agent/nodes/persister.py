@@ -142,47 +142,49 @@ async def run(state: AgentState) -> dict[str, Any]:
     notion_tasks = entities.get("tasks") or []
     notion_links = entities.get("reading_links") or []
 
+    is_test = state.get("is_test", False)
+
     if sleep and isinstance(sleep, dict):
-        records_to_save.append({**sleep, "type": "sleep"})
+        records_to_save.append({**sleep, "type": "sleep", "is_test": is_test})
         logged_sections.append(f"{_ICONS['sleep']}: {_summarise_sleep(sleep)}")
 
     if exercise:
         for ex in exercise:
             if isinstance(ex, dict):
-                records_to_save.append({**ex, "type": "exercise"})
+                records_to_save.append({**ex, "type": "exercise", "is_test": is_test})
         logged_sections.append(f"{_ICONS['exercise']}: {_summarise_exercise(exercise)}")
 
     for p_key in ['meditation', 'cleaning', 'sitting', 'group_meditation']:
         p_items = entities.get(p_key) or []
         for p in p_items:
             if isinstance(p, dict):
-                records_to_save.append({**p, "type": p_key})
+                records_to_save.append({**p, "type": p_key, "is_test": is_test})
         if p_items:
             logged_sections.append(f"{_ICONS[p_key]}: {_summarise_practice(p_key, p_items)}")
 
     habits = entities.get("habits") or []
     for h in habits:
         if isinstance(h, dict):
-            records_to_save.append({**h, "type": "habit"})
+            records_to_save.append({**h, "type": "habit", "is_test": is_test})
     if habits:
         logged_sections.append(f"{_ICONS['habits']}: {_summarise_habits(habits)}")
 
     if journal_note:
-        records_to_save.append({"type": "journal_note", "note": journal_note})
+        records_to_save.append({"type": "journal_note", "note": journal_note, "is_test": is_test})
         preview = journal_note if len(journal_note) <= 80 else journal_note[:77] + "..."
         logged_sections.append(f"{_ICONS['journal_note']}: {preview}")
 
     if notion_tasks:
         for task in notion_tasks:
             if isinstance(task, dict):
-                records_to_save.append({**task, "type": "tasks"})
+                records_to_save.append({**task, "type": "tasks", "is_test": is_test})
         task_names = ", ".join(t.get("task", "") for t in notion_tasks if isinstance(t, dict))
         logged_sections.append(f"{_ICONS['tasks']}: {task_names}")
 
     if notion_links:
         for link in notion_links:
             if isinstance(link, dict):
-                records_to_save.append({**link, "type": "reading_links"})
+                records_to_save.append({**link, "type": "reading_links", "is_test": is_test})
         logged_sections.append(f"{_ICONS['reading_links']}: {len(notion_links)} link(s) saved")
 
     # ── Build the response ────────────────────────────────────────────────
@@ -192,7 +194,7 @@ async def run(state: AgentState) -> dict[str, Any]:
     response_parts = ["I have logged the following:\n" + "\n".join(logged_sections)]
 
     # ── Notion sync — reconstruct Pydantic models from plain dicts ────────
-    if len(records_to_save) > 0:
+    if len(records_to_save) > 0 and not is_test:
         from life_os.models.tasks import ReadingLink, TaskItem
         from life_os.models.wellness import (
             CleaningEntry,

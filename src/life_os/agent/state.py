@@ -42,3 +42,4 @@ class AgentState(TypedDict, total=False):
     last_interaction_ts: float
     total_tokens: Annotated[int, add_metadata]
     total_cost_usd: Annotated[float, add_metadata]
+    is_test: bool | None

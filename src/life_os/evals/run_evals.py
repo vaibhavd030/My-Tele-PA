@@ -2,7 +2,11 @@
 
 import asyncio
 import json
+import sys
 from pathlib import Path
+
+# Auto-inject src/ into pythonpath so it works seamlessly without PYTHONPATH=src
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from life_os.agent.graph import get_app
 from life_os.evals.metrics import slot_fill_f1
@@ -12,10 +16,12 @@ PASS_THRESHOLD_F1 = 0.75  # Fail CI if below this
 
 from unittest.mock import patch
 
+@patch("life_os.agent.nodes.persister.append_notion_blocks")
 @patch("life_os.agent.nodes.query.get_db")
 @patch("life_os.agent.nodes.persister.save_records")
-async def run_extraction_evals(mock_save, mock_get_db) -> dict[str, float]:
+async def run_extraction_evals(mock_save, mock_get_db, mock_notion) -> dict[str, float]:
     mock_get_db.return_value.query.return_value.result.return_value = []
+    mock_notion.return_value = []
     """Run all extraction eval cases, return aggregate metrics.
 
     Returns:
@@ -29,7 +35,7 @@ async def run_extraction_evals(mock_save, mock_get_db) -> dict[str, float]:
     for case in cases:
         predicted = {}
         async for step in agent_app.astream(
-            {"raw_input": case["input"], "user_id": "eval_user"},
+            {"raw_input": case["input"], "user_id": "eval_user", "is_test": True},
             config={"configurable": {"thread_id": f"eval_{case['id']}"}},
         ):
             if "extract" in step and "entities" in step["extract"]:

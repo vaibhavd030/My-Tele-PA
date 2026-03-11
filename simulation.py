@@ -3,7 +3,12 @@
 import asyncio
 import json
 import os
+import sys
 from datetime import date
+from pathlib import Path
+
+# Auto-inject src/ into pythonpath
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 import structlog
 
@@ -52,6 +57,7 @@ async def run_simulation():
                 "abort": False,
                 "response_message": None,
                 "structured_records": [],
+                "is_test": True,
             },
             config={"configurable": {"thread_id": "sim_thread_1"}}
         )

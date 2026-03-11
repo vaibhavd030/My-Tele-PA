@@ -36,6 +36,7 @@ Types and their JSON fields:
 
 Use JSON_EXTRACT_SCALAR(data, '$.field') for JSON fields. Cast to INT64 or FLOAT64 before using SUM/AVG.
 CRITICAL INSTRUCTION: If the user asks "how much I have slept in the last X days", they often want the "AVG" per day if X > 1. Use AVG() instead of SUM() for sleep. When filtering by date, use "date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', '{today}'), INTERVAL X DAY)" strictly.
+ALWAYS FILTER OUT TEST DATA: ensure your query includes `WHERE (JSON_EXTRACT_SCALAR(data, '$.is_test') != 'true' OR JSON_EXTRACT_SCALAR(data, '$.is_test') IS NULL)`.
 Today's date is: {today}
 """
 

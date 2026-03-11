@@ -100,6 +100,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     agent_app = await get_app()
 
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action="typing")
+
     state = await agent_app.ainvoke(
         {
             "user_id": user_id,
@@ -114,7 +116,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     from telegram.constants import ParseMode
 
-    await update.message.reply_text(response, parse_mode=ParseMode.HTML)
+    await update.message.reply_text(response, parse_mode=ParseMode.HTML, reply_to_message_id=update.message.message_id)
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -139,7 +141,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text("Voice note too long. Max 20 minutes allowed.")
         return
 
-    status_msg = await update.message.reply_text("🎙️ Transcribing...")
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action="typing")
 
     import io
 
@@ -150,7 +152,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # 2. Download to memory and check bounds
     file_info = await context.bot.get_file(attachment.file_id)
     if file_info.file_size and file_info.file_size > 25 * 1024 * 1024:
-        await status_msg.edit_text("File too large for transcription API (max 25MB).")
+        await update.message.reply_text("File too large for transcription API (max 25MB).")
         return
 
     buffer = io.BytesIO()
@@ -179,17 +181,16 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         transcript = await _transcribe()
     except Exception as exc:
         log.error("transcription_failed", error=str(exc))
-        await status_msg.edit_text("Failed to transcribe voice note.")
+        await update.message.reply_text("Failed to transcribe voice note.")
         return
 
     text = transcript.text.strip()
     if not text:
-        await status_msg.edit_text("Could not transcribe any speech from that note.")
+        await update.message.reply_text("Could not transcribe any speech from that note.")
         return
 
     # 4. Preview edit reflection
     preview = text[:100] + "..." if len(text) > 100 else text
-    await status_msg.edit_text(f"🎙️ Heard: \"{preview}\"\nProcessing...")
 
     structlog.contextvars.bind_contextvars(user_id=user_id, message_id=update.message.message_id)
     log.info("processing_voice_message", length=len(text))
@@ -209,7 +210,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     from telegram.constants import ParseMode
     response = state.get("response_message") or "Noted."
-    await status_msg.edit_text(f"🎙️ Heard: \"{preview}\"\n\n{response}", parse_mode=ParseMode.HTML)
+    await update.message.reply_text(f"🎙️ Heard: \"{preview}\"\n\n{response}", parse_mode=ParseMode.HTML, reply_to_message_id=update.message.message_id)
 
 
 def create_fastapi_app(application: Application | None = None) -> FastAPI:
