@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from typing import Any
+from datetime import UTC, datetime
 
 import structlog
 from pydantic import BaseModel
@@ -28,6 +29,18 @@ class MessageIntent(BaseModel):
 async def run(state: AgentState) -> dict[str, Any]:
     """Classify intent of the message."""
     log.info("classifying_intent", user_id=state["user_id"])
+
+    # If we are actively in a clarification loop, bypass classification and force 'log'
+    now_ts = datetime.now(UTC).timestamp()
+    last_ts = state.get("last_interaction_ts")
+    is_clarifying = bool(state.get("missing_fields"))
+    if is_clarifying and last_ts and (now_ts - last_ts <= 1800):
+        log.info("clarification_bypass_classifier", user_id=state["user_id"])
+        return {
+            "intent": Intent.LOG.value,
+            "total_tokens": 0,
+            "total_cost_usd": 0.0,
+        }
 
     text = state["raw_input"]
 
